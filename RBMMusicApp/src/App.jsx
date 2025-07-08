@@ -439,6 +439,8 @@ export default function App() {
           onTogglePlay={togglePlayPause}
           onPress={openFullPlayer}
           onNext={playNext}
+          position={audioState.position}
+          duration={audioState.duration}
         />
         
         <BottomNavBar 
@@ -480,4 +482,5 @@ const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
   },
+
 });

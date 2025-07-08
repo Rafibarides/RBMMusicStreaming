@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { palette } from '../utils/Colors';
 
 const MinimizedPlayer = ({ 
@@ -8,13 +9,21 @@ const MinimizedPlayer = ({
   isPlaying, 
   onTogglePlay, 
   onPress, 
-  onNext 
+  onNext,
+  position = 0,
+  duration = 0
 }) => {
   if (!song) return null;
 
+  const progressPercentage = duration > 0 ? (position / duration) * 100 : 0;
+
   return (
-    <TouchableOpacity style={styles.container} onPress={onPress}>
-      <View style={styles.content}>
+    <TouchableOpacity 
+      style={styles.glassPill} 
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      <BlurView intensity={25} style={styles.blurContainer}>
         {/* Song artwork */}
         <Image 
           source={{ uri: song.coverArt }} 
@@ -23,86 +32,122 @@ const MinimizedPlayer = ({
         
         {/* Song info */}
         <View style={styles.songInfo}>
-          <Text style={styles.songTitle} numberOfLines={1}>
+          <Text style={styles.title} numberOfLines={1}>
             {song.title || song.name}
           </Text>
-          <Text style={styles.artistName} numberOfLines={1}>
+          <Text style={styles.artist} numberOfLines={1}>
             {song.artist}
           </Text>
         </View>
         
         {/* Controls */}
-        <View style={styles.controls}>
-          <TouchableOpacity 
-            style={styles.controlButton}
-            onPress={onTogglePlay}
-          >
-            <FontAwesome 
-              name={isPlaying ? "pause" : "play"} 
-              size={18} 
-              color={palette.text}
-              style={!isPlaying ? styles.playIcon : null}
-            />
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.controlButton}
-            onPress={onNext}
-          >
-            <FontAwesome 
-              name="step-forward" 
-              size={16} 
-              color={palette.text} 
-            />
-          </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.playBtn}
+          onPress={onTogglePlay}
+        >
+          <FontAwesome 
+            name={isPlaying ? "pause" : "play"} 
+            size={16} 
+            color={palette.text}
+            style={!isPlaying ? { marginLeft: 1 } : null}
+          />
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.nextBtn}
+          onPress={onNext}
+        >
+          <FontAwesome 
+            name="step-forward" 
+            size={14} 
+            color={palette.text} 
+          />
+        </TouchableOpacity>
+        
+        {/* Progress bar */}
+        <View style={styles.progressBar}>
+          <View 
+            style={[styles.progress, { width: `${progressPercentage}%` }]} 
+          />
         </View>
-      </View>
+      </BlurView>
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: palette.secondary,
-    borderTopWidth: 1,
-    borderTopColor: palette.tertiary,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
+  glassPill: {
+    position: 'absolute',
+    bottom: 120, // Position above nav bar
+    left: 10,
+    right: 10,
+    height: 70,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
+    overflow: 'hidden',
   },
-  content: {
+  blurContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(37, 56, 64, 0.7)', // Lighter tint for blur
   },
   artwork: {
     width: 50,
     height: 50,
-    borderRadius: 6,
-    marginRight: 15,
+    borderRadius: 8,
+    marginRight: 12,
   },
   songInfo: {
     flex: 1,
-    paddingRight: 10,
+    paddingRight: 8,
   },
-  songTitle: {
-    fontSize: 16,
-    fontWeight: '500',
+  title: {
+    fontSize: 14,
+    fontWeight: '600',
     color: palette.text,
     marginBottom: 2,
   },
-  artistName: {
-    fontSize: 14,
+  artist: {
+    fontSize: 12,
     color: palette.quaternary,
   },
-  controls: {
-    flexDirection: 'row',
+  playBtn: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  nextBtn: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  controlButton: {
-    padding: 10,
-    marginLeft: 5,
+  progressBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    overflow: 'hidden',
   },
-  playIcon: {
-    marginLeft: 2,
+  progress: {
+    height: 2,
+    backgroundColor: palette.text,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
   },
 });
 
