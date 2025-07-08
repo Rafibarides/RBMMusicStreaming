@@ -14,7 +14,7 @@ import Animated, { useSharedValue, useAnimatedGestureHandler, useAnimatedStyle, 
 import { palette } from '../utils/Colors';
 import SongListPage from './SongListPage';
 
-const ArtistPage = ({ artist, onBack, searchState, updateSearchState }) => {
+const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong }) => {
   const [activeTab, setActiveTab] = useState('Music');
   
   // Use search state if provided, otherwise fall back to local state
@@ -181,8 +181,19 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState }) => {
       if (isAlbum) {
         navigateToAlbum(data);
       } else {
-        // TODO: Handle single play
-        console.log('Playing single:', data.name);
+        // Play the single
+        if (playSong) {
+          const singleData = {
+            id: data.id,
+            title: data.name,
+            name: data.name,
+            artist: artist.name,
+            coverArt: data.coverArt,
+            audio: data.audio,
+            type: 'single'
+          };
+          playSong(singleData, [singleData], 0);
+        }
       }
     };
 
@@ -274,6 +285,7 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState }) => {
         title={songListData.title}
         subtitle={songListData.subtitle}
         onBack={navigateBackToProfile}
+        playSong={playSong}
       />
     );
   }
@@ -301,7 +313,17 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState }) => {
                   <TouchableOpacity style={styles.shuffleButton}>
                     <FontAwesome name="random" size={12} color={palette.quaternary} />
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.playButton}>
+                  <TouchableOpacity 
+                    style={styles.playButton}
+                    onPress={() => {
+                      if (playSong) {
+                        const allSongs = getAllArtistSongs();
+                        if (allSongs.length > 0) {
+                          playSong(allSongs[0], allSongs, 0);
+                        }
+                      }
+                    }}
+                  >
                     <FontAwesome name="play" size={16} color={palette.text} style={styles.playIcon} />
                   </TouchableOpacity>
                 </View>

@@ -13,7 +13,7 @@ import { GestureHandlerRootView, PanGestureHandler } from 'react-native-gesture-
 import Animated, { useSharedValue, useAnimatedGestureHandler, useAnimatedStyle, runOnJS, withSpring } from 'react-native-reanimated';
 import { palette } from '../utils/Colors';
 
-const SongListPage = ({ songs, title, subtitle, onBack }) => {
+const SongListPage = ({ songs, title, subtitle, onBack, playSong }) => {
   // Gesture handling for swipe back
   const translateX = useSharedValue(0);
 
@@ -66,8 +66,9 @@ const SongListPage = ({ songs, title, subtitle, onBack }) => {
     <TouchableOpacity 
       style={styles.songItem}
       onPress={() => {
-        // TODO: Handle song play
-        console.log('Playing song:', item.title || item.name);
+        if (playSong) {
+          playSong(item, songs, index);
+        }
       }}
     >
       <Image 

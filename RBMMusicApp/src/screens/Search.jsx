@@ -19,7 +19,7 @@ import songsData from '../json/songIndexFlat.json';
 // Import pages
 import ArtistPage from '../pages/ArtistPage';
 
-const Search = ({ searchState, updateSearchState, resetSearchNavigation }) => {
+const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSong }) => {
   const {
     searchQuery,
     searchResults,
@@ -113,8 +113,10 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation }) => {
         if (item.type === 'artist') {
           navigateToArtist(item.data);
         } else {
-          // TODO: Handle song click (play song or navigate to album)
-          console.log('Clicked song:', item.name);
+          // Play the song
+          if (playSong) {
+            playSong(item.data, [item.data], 0);
+          }
         }
       }}
     >
@@ -228,6 +230,7 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation }) => {
         onBack={navigateBack}
         searchState={searchState}
         updateSearchState={updateSearchState}
+        playSong={playSong}
       />
     );
   }
