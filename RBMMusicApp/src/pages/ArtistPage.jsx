@@ -23,6 +23,7 @@ import videoIndexFlat from '../json/videoIndexFlat.json';
 const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, onStopAudio }) => {
   const [activeTab, setActiveTab] = useState('Music');
   const [videoAspectRatios, setVideoAspectRatios] = useState({});
+  const [playingVideoId, setPlayingVideoId] = useState(null);
   
   // Use search state if provided, otherwise fall back to local state
   const currentView = searchState?.songListData ? 'songList' : 'profile';
@@ -281,54 +282,6 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
     </View>
   );
 
-  // Handle video load to get natural dimensions
-  const handleVideoLoad = (videoId, status) => {
-    if (status.naturalSize) {
-      const { width, height } = status.naturalSize;
-      const aspectRatio = width / height;
-      setVideoAspectRatios(prev => ({
-        ...prev,
-        [videoId]: aspectRatio
-      }));
-    }
-  };
-
-  // Handle video play - stop any current audio
-  const handleVideoPlay = () => {
-    if (onStopAudio) {
-      onStopAudio();
-    }
-  };
-
-  // Render single video item
-  const renderVideoItem = (video) => {
-    const aspectRatio = videoAspectRatios[video.id];
-    const screenWidth = Dimensions.get('window').width - 40; // Account for padding
-    const calculatedHeight = aspectRatio ? screenWidth / aspectRatio : 200;
-    
-    return (
-      <View key={video.id} style={styles.videoItem}>
-        <View style={[styles.videoContainer, { height: calculatedHeight }]}>
-          <Video
-            source={{ uri: video.url }}
-            style={styles.videoPlayer}
-            useNativeControls
-            resizeMode="contain"
-            isLooping={false}
-            shouldPlay={false}
-            onLoad={(status) => handleVideoLoad(video.id, status)}
-            onPlaybackStatusUpdate={(status) => {
-              if (status.isLoaded && status.isPlaying) {
-                handleVideoPlay();
-              }
-            }}
-          />
-        </View>
-        <Text style={styles.videoTitle}>{video.title}</Text>
-      </View>
-    );
-  };
-
   // Render video content
   const renderVideoContent = () => {
     const artistVideos = getArtistVideos();
@@ -357,6 +310,73 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
   const getArtistVideos = () => {
     return videoIndexFlat.filter(video => video.artistId === artist.id);
   };
+
+  // Handle video load to get natural dimensions
+  const handleVideoLoad = (videoId, status) => {
+    if (status.naturalSize) {
+      const { width, height } = status.naturalSize;
+      const aspectRatio = width / height;
+      setVideoAspectRatios(prev => ({
+        ...prev,
+        [videoId]: aspectRatio
+      }));
+    }
+  };
+
+  // Handle video play - stop any current audio and other videos
+  const handleVideoPlay = (videoId) => {
+    if (onStopAudio) {
+      onStopAudio();
+    }
+    // Set this video as the currently playing one (stops all others)
+    setPlayingVideoId(videoId);
+  };
+
+  // Handle video pause/stop
+  const handleVideoStop = (videoId) => {
+    // If this was the playing video, clear the playing state
+    if (playingVideoId === videoId) {
+      setPlayingVideoId(null);
+    }
+  };
+
+  // Render single video item
+  const renderVideoItem = (video) => {
+    const aspectRatio = videoAspectRatios[video.id];
+    const screenWidth = Dimensions.get('window').width - 40; // Account for padding
+    const calculatedHeight = aspectRatio ? screenWidth / aspectRatio : 200;
+    const isCurrentlyPlaying = playingVideoId === video.id;
+    
+    return (
+      <View key={video.id} style={styles.videoItem}>
+        <View style={[styles.videoContainer, { height: calculatedHeight }]}>
+          <Video
+            source={{ uri: video.url }}
+            style={styles.videoPlayer}
+            useNativeControls
+            resizeMode="contain"
+            isLooping={false}
+            shouldPlay={isCurrentlyPlaying}
+            onLoad={(status) => handleVideoLoad(video.id, status)}
+            onPlaybackStatusUpdate={(status) => {
+              if (status.isLoaded) {
+                if (status.isPlaying && !isCurrentlyPlaying) {
+                  // Video started playing, make it the active one
+                  handleVideoPlay(video.id);
+                } else if (!status.isPlaying && isCurrentlyPlaying) {
+                  // Video stopped/paused, clear the playing state
+                  handleVideoStop(video.id);
+                }
+              }
+            }}
+          />
+        </View>
+        <Text style={styles.videoTitle}>{video.title}</Text>
+      </View>
+    );
+  };
+
+
 
   // Get events for current artist
   const getArtistEvents = () => {
@@ -475,21 +495,7 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
     );
   };
 
-  // Get content based on active tab
-  const getTabContent = () => {
-    switch (activeTab) {
-      case 'Music':
-        return renderMusicContent();
-      case 'Video':
-        return renderVideoContent();
-      case 'Events':
-        return renderEventsContent();
-      case 'Support Me':
-        return renderSupportContent();
-      default:
-        return renderMusicContent();
-    }
-  };
+
 
   // Show SongListPage if currentView is 'songList'
   if (currentView === 'songList' && songListData) {
@@ -553,7 +559,13 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
                     styles.tabButton,
                     activeTab === tab && styles.activeTabButton
                   ]}
-                  onPress={() => setActiveTab(tab)}
+                  onPress={() => {
+                    // Stop any playing video when switching away from Video tab
+                    if (activeTab === 'Video' && tab !== 'Video' && playingVideoId) {
+                      setPlayingVideoId(null);
+                    }
+                    setActiveTab(tab);
+                  }}
                 >
                   <Text
                     style={[
@@ -569,7 +581,34 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
 
             {/* Tab Content */}
             <View style={styles.tabContent}>
-              {getTabContent()}
+              {/* Always render all content, but position hidden ones offscreen */}
+              <View style={[
+                styles.tabPanel,
+                activeTab !== 'Music' && styles.hiddenTabPanel
+              ]}>
+                {renderMusicContent()}
+              </View>
+              
+              <View style={[
+                styles.tabPanel,
+                activeTab !== 'Video' && styles.hiddenTabPanel
+              ]}>
+                {renderVideoContent()}
+              </View>
+              
+              <View style={[
+                styles.tabPanel,
+                activeTab !== 'Events' && styles.hiddenTabPanel
+              ]}>
+                {renderEventsContent()}
+              </View>
+              
+              <View style={[
+                styles.tabPanel,
+                activeTab !== 'Support Me' && styles.hiddenTabPanel
+              ]}>
+                {renderSupportContent()}
+              </View>
             </View>
           </ScrollView>
         </Animated.View>
@@ -661,6 +700,16 @@ const styles = StyleSheet.create({
   },
   tabContent: {
     paddingHorizontal: 20,
+  },
+  tabPanel: {
+    // Default visible state
+  },
+  hiddenTabPanel: {
+    position: 'absolute',
+    left: -9999,
+    top: -9999,
+    opacity: 0,
+    pointerEvents: 'none',
   },
   section: {
     marginBottom: 30,

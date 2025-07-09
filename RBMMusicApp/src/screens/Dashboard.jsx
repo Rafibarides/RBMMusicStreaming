@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { 
   View, 
   Text, 
@@ -8,15 +8,21 @@ import {
   Image,
   ImageBackground,
   FlatList,
-  Animated
+  Animated,
+  SectionList
 } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { palette } from '../utils/Colors';
 import { useMusicData } from '../contexts/MusicDataContext';
+import songIndexFlat from '../json/songIndexFlat.json';
+import artists from '../json/artists.json';
 
-const Dashboard = ({ playSong, onNavigateToPlaylists }) => {
+const Dashboard = ({ playSong, onNavigateToPlaylists, onNavigateToArtist }) => {
   const { likedSongs, recentPlays, isLoading } = useMusicData();
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [showCatalog, setShowCatalog] = useState(false);
+  const [showRecentlyAdded, setShowRecentlyAdded] = useState(false);
+  const [showNewArtists, setShowNewArtists] = useState(false);
 
   useEffect(() => {
     // Fade in animation with slight delay for polish
@@ -27,6 +33,59 @@ const Dashboard = ({ playSong, onNavigateToPlaylists }) => {
       useNativeDriver: true,
     }).start();
   }, [fadeAnim]);
+
+  // Organize songs alphabetically with letter dividers
+  const getAlphabeticalSongs = () => {
+    const sortedSongs = [...songIndexFlat].sort((a, b) => 
+      a.title.toLowerCase().localeCompare(b.title.toLowerCase())
+    );
+
+    const groupedSongs = {};
+    sortedSongs.forEach(song => {
+      const firstLetter = song.title.charAt(0).toUpperCase();
+      if (!groupedSongs[firstLetter]) {
+        groupedSongs[firstLetter] = [];
+      }
+      groupedSongs[firstLetter].push(song);
+    });
+
+    return Object.keys(groupedSongs).sort().map(letter => ({
+      title: letter,
+      data: groupedSongs[letter]
+    }));
+  };
+
+  // Get recently added songs (top 10 by release date)
+  const getRecentlyAddedSongs = () => {
+    return [...songIndexFlat]
+      .sort((a, b) => new Date(b.releaseDate) - new Date(a.releaseDate))
+      .slice(0, 10);
+  };
+
+  // Calculate newest artists based on their first release date
+  const getNewestArtists = () => {
+    const artistsWithFirstReleaseDate = artists.map(artist => {
+      // Find all songs by this artist
+      const artistSongs = songIndexFlat.filter(song => song.artistId === artist.id);
+      
+      if (artistSongs.length === 0) {
+        return { ...artist, firstReleaseDate: null };
+      }
+      
+      // Find the earliest release date
+      const earliestDate = artistSongs.reduce((earliest, song) => {
+        const songDate = new Date(song.releaseDate);
+        return songDate < earliest ? songDate : earliest;
+      }, new Date(artistSongs[0].releaseDate));
+      
+      return { ...artist, firstReleaseDate: earliestDate };
+    });
+
+    // Filter out artists with no songs and sort by first release date (newest first)
+    return artistsWithFirstReleaseDate
+      .filter(artist => artist.firstReleaseDate !== null)
+      .sort((a, b) => new Date(b.firstReleaseDate) - new Date(a.firstReleaseDate));
+  };
 
   const renderSongItem = ({ item, index }) => (
     <TouchableOpacity 
@@ -76,12 +135,227 @@ const Dashboard = ({ playSong, onNavigateToPlaylists }) => {
     </TouchableOpacity>
   );
 
+  // Render catalog song item
+  const renderCatalogSongItem = ({ item }) => (
+    <TouchableOpacity 
+      style={styles.catalogSongItem}
+      onPress={() => {
+        if (playSong) {
+          playSong(item, songIndexFlat, songIndexFlat.findIndex(s => s.id === item.id));
+        }
+      }}
+    >
+      <Image 
+        source={{ uri: item.coverArt }} 
+        style={styles.catalogSongCover}
+      />
+      <View style={styles.catalogSongInfo}>
+        <Text style={styles.catalogSongTitle} numberOfLines={1}>
+          {item.title}
+        </Text>
+        <Text style={styles.catalogSongArtist} numberOfLines={1}>
+          {item.artist}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+
+  // Render catalog section header
+  const renderCatalogSectionHeader = ({ section }) => (
+    <View style={styles.catalogSectionHeader}>
+      <Text style={styles.catalogSectionTitle}>{section.title}</Text>
+    </View>
+  );
+
+  // Render catalog view
+  const renderCatalogView = () => (
+    <View style={styles.catalogContainer}>
+      <View style={styles.catalogHeader}>
+        <TouchableOpacity 
+          style={styles.catalogBackButton}
+          onPress={() => setShowCatalog(false)}
+        >
+          <FontAwesome name="chevron-left" size={20} color={palette.text} />
+        </TouchableOpacity>
+        <Text style={styles.catalogTitle}>Full Catalog</Text>
+        <Text style={styles.catalogCount}>({songIndexFlat.length} songs)</Text>
+      </View>
+
+      <SectionList
+        sections={getAlphabeticalSongs()}
+        renderItem={renderCatalogSongItem}
+        renderSectionHeader={renderCatalogSectionHeader}
+        keyExtractor={(item) => item.id.toString()}
+        showsVerticalScrollIndicator={false}
+        stickySectionHeadersEnabled={true}
+        style={styles.catalogList}
+      />
+    </View>
+  );
+
+  // Render recently added view
+  const renderRecentlyAddedView = () => {
+    const recentlyAddedSongs = getRecentlyAddedSongs();
+    
+    return (
+      <View style={styles.catalogContainer}>
+        <View style={styles.catalogHeader}>
+          <TouchableOpacity 
+            style={styles.catalogBackButton}
+            onPress={() => setShowRecentlyAdded(false)}
+          >
+            <FontAwesome name="chevron-left" size={20} color={palette.text} />
+          </TouchableOpacity>
+          <Text style={styles.catalogTitle}>Recently Added</Text>
+          <Text style={styles.catalogCount}>({recentlyAddedSongs.length} songs)</Text>
+        </View>
+
+        <FlatList
+          data={recentlyAddedSongs}
+          renderItem={({ item, index }) => (
+            <TouchableOpacity 
+              style={styles.recentlyAddedSongItem}
+              onPress={() => {
+                if (playSong) {
+                  playSong(item, recentlyAddedSongs, index);
+                }
+              }}
+            >
+              <View style={styles.rankContainer}>
+                <Text style={styles.rankNumber}>{index + 1}</Text>
+              </View>
+              <Image 
+                source={{ uri: item.coverArt }} 
+                style={styles.catalogSongCover}
+              />
+              <View style={styles.catalogSongInfo}>
+                <Text style={styles.catalogSongTitle} numberOfLines={1}>
+                  {item.title}
+                </Text>
+                <Text style={styles.catalogSongArtist} numberOfLines={1}>
+                  {item.artist}
+                </Text>
+                <Text style={styles.releaseDate}>
+                  Released {new Date(item.releaseDate).toLocaleDateString()}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
+          keyExtractor={(item) => item.id.toString()}
+          showsVerticalScrollIndicator={false}
+          style={styles.catalogList}
+        />
+      </View>
+    );
+  };
+
+  // Render new artists view
+  const renderNewArtistsView = () => {
+    const newestArtists = getNewestArtists();
+    const spotlightArtist = newestArtists[0];
+    const nextArtists = newestArtists.slice(1, 5); // Next 4 artists
+
+    return (
+      <ScrollView style={styles.catalogContainer} showsVerticalScrollIndicator={false}>
+        <View style={styles.catalogHeader}>
+          <TouchableOpacity 
+            style={styles.catalogBackButton}
+            onPress={() => setShowNewArtists(false)}
+          >
+            <FontAwesome name="chevron-left" size={20} color={palette.text} />
+          </TouchableOpacity>
+          <Text style={styles.catalogTitle}>New Artists</Text>
+          <Text style={styles.catalogCount}>({newestArtists.length} artists)</Text>
+        </View>
+
+        {/* Artist Spotlight */}
+        {spotlightArtist && (
+          <TouchableOpacity 
+            style={styles.spotlightContainer}
+            onPress={() => {
+              if (onNavigateToArtist) {
+                onNavigateToArtist(spotlightArtist);
+              }
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.spotlightLabel}>Artist Spotlight</Text>
+            <Image 
+              source={{ uri: spotlightArtist.image }} 
+              style={styles.spotlightImage}
+            />
+            <Text style={styles.spotlightName}>{spotlightArtist.name}</Text>
+            <Text style={styles.spotlightDate}>
+              Joined {new Date(spotlightArtist.firstReleaseDate).toLocaleDateString()}
+            </Text>
+            {spotlightArtist.bio && (
+              <Text style={styles.spotlightBio}>{spotlightArtist.bio}</Text>
+            )}
+          </TouchableOpacity>
+        )}
+
+        {/* Next Artists List */}
+        {nextArtists.length > 0 && (
+          <View style={styles.nextArtistsContainer}>
+            <Text style={styles.nextArtistsTitle}>More New Artists</Text>
+            {nextArtists.map((artist, index) => (
+              <TouchableOpacity 
+                key={artist.id} 
+                style={styles.nextArtistItem}
+                onPress={() => {
+                  if (onNavigateToArtist) {
+                    onNavigateToArtist(artist);
+                  }
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.nextArtistRank}>
+                  <Text style={styles.nextArtistRankNumber}>{index + 2}</Text>
+                </View>
+                <Image 
+                  source={{ uri: artist.image }} 
+                  style={styles.nextArtistImage}
+                />
+                <View style={styles.nextArtistInfo}>
+                  <Text style={styles.nextArtistName} numberOfLines={1}>
+                    {artist.name}
+                  </Text>
+                  <Text style={styles.nextArtistDate}>
+                    Joined {new Date(artist.firstReleaseDate).toLocaleDateString()}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Bottom spacing */}
+        <View style={{ height: 100 }} />
+      </ScrollView>
+    );
+  };
+
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
+  }
+
+  // Show catalog view if active
+  if (showCatalog) {
+    return renderCatalogView();
+  }
+
+  // Show recently added view if active
+  if (showRecentlyAdded) {
+    return renderRecentlyAddedView();
+  }
+
+  // Show new artists view if active
+  if (showNewArtists) {
+    return renderNewArtistsView();
   }
 
   return (
@@ -160,11 +434,17 @@ const Dashboard = ({ playSong, onNavigateToPlaylists }) => {
         </View>
         
         <View style={styles.quickAccessGrid}>
-          <TouchableOpacity style={styles.quickAccessButton}>
+          <TouchableOpacity 
+            style={styles.quickAccessButton}
+            onPress={() => setShowNewArtists(true)}
+          >
             <Text style={styles.quickAccessText}>New Artists</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.quickAccessButton}>
+          <TouchableOpacity 
+            style={styles.quickAccessButton}
+            onPress={() => setShowRecentlyAdded(true)}
+          >
             <Text style={styles.quickAccessText}>Recently Added</Text>
           </TouchableOpacity>
           
@@ -172,7 +452,10 @@ const Dashboard = ({ playSong, onNavigateToPlaylists }) => {
             <Text style={styles.quickAccessText}>Popular</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.quickAccessButton}>
+          <TouchableOpacity 
+            style={styles.quickAccessButton}
+            onPress={() => setShowCatalog(true)}
+          >
             <Text style={styles.quickAccessText}>Catalog</Text>
           </TouchableOpacity>
         </View>
@@ -337,6 +620,188 @@ const styles = StyleSheet.create({
     color: palette.quaternary,
     fontSize: 14,
     fontWeight: '500',
+  },
+  
+  // Catalog styles
+  catalogContainer: {
+    flex: 1,
+    backgroundColor: palette.background,
+  },
+  catalogHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 50,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.secondary,
+  },
+  catalogBackButton: {
+    padding: 10,
+    marginRight: 10,
+  },
+  catalogTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: palette.text,
+    flex: 1,
+  },
+  catalogCount: {
+    fontSize: 16,
+    color: palette.quaternary,
+  },
+  catalogList: {
+    flex: 1,
+  },
+  catalogSectionHeader: {
+    backgroundColor: palette.secondary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.background,
+  },
+  catalogSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: palette.text,
+  },
+  catalogSongItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  catalogSongCover: {
+    width: 45,
+    height: 45,
+    borderRadius: 6,
+    marginRight: 15,
+  },
+  catalogSongInfo: {
+    flex: 1,
+  },
+  catalogSongTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: palette.text,
+    marginBottom: 2,
+  },
+  catalogSongArtist: {
+    fontSize: 14,
+    color: palette.quaternary,
+  },
+  
+  // Recently Added styles
+  recentlyAddedSongItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  rankContainer: {
+    width: 30,
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  rankNumber: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: palette.tertiary,
+  },
+  releaseDate: {
+    fontSize: 12,
+    color: palette.quaternary,
+    marginTop: 2,
+  },
+  
+  // New Artists styles
+  spotlightContainer: {
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 30,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.secondary,
+  },
+  spotlightLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: palette.tertiary,
+    marginBottom: 20,
+  },
+  spotlightImage: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    marginBottom: 20,
+  },
+  spotlightName: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: palette.text,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  spotlightDate: {
+    fontSize: 14,
+    color: palette.quaternary,
+    marginBottom: 20,
+  },
+  spotlightBio: {
+    fontSize: 16,
+    color: palette.text,
+    textAlign: 'center',
+    lineHeight: 24,
+    opacity: 0.8,
+  },
+  nextArtistsContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+  },
+  nextArtistsTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: palette.text,
+    marginBottom: 20,
+  },
+  nextArtistItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  nextArtistRank: {
+    width: 30,
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  nextArtistRankNumber: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: palette.tertiary,
+  },
+  nextArtistImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    marginRight: 15,
+  },
+  nextArtistInfo: {
+    flex: 1,
+  },
+  nextArtistName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: palette.text,
+    marginBottom: 4,
+  },
+  nextArtistDate: {
+    fontSize: 14,
+    color: palette.quaternary,
   },
 });
 

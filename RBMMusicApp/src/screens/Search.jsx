@@ -7,14 +7,20 @@ import {
   ScrollView, 
   TouchableOpacity, 
   Image,
-  FlatList 
+  FlatList,
+  Linking,
+  Modal,
+  Dimensions 
 } from 'react-native';
+import { Video } from 'expo-av';
 import { FontAwesome } from '@expo/vector-icons';
 import { palette } from '../utils/Colors';
 
 // Import JSON data
 import artistsData from '../json/artists.json';
 import songsData from '../json/songIndexFlat.json';
+import eventsData from '../json/eventIndexFlat.json';
+import videosData from '../json/videoIndexFlat.json';
 
 // Import pages
 import ArtistPage from '../pages/ArtistPage';
@@ -28,6 +34,18 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
     selectedArtist,
     songListData
   } = searchState;
+
+  // Local state for events page
+  const [eventsSearchQuery, setEventsSearchQuery] = useState('');
+  const [filteredEvents, setFilteredEvents] = useState(eventsData);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [dateFilter, setDateFilter] = useState('all'); // all, upcoming, past
+
+  // Local state for videos page
+  const [videosSearchQuery, setVideosSearchQuery] = useState('');
+  const [filteredVideos, setFilteredVideos] = useState(videosData);
+  const [selectedVideo, setSelectedVideo] = useState(null);
+  const [videoAspectRatio, setVideoAspectRatio] = useState(16/9);
 
   // Search categories grid
   const searchCategories = [
@@ -77,6 +95,8 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
       }
     });
 
+
+
     updateSearchState({
       searchResults: results,
       showResults: true
@@ -87,6 +107,70 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
   useEffect(() => {
     performSearch(searchQuery);
   }, [searchQuery]);
+
+  // Search and filter events
+  const searchEvents = (query, filter) => {
+    let events = [...eventsData];
+
+    // Filter by date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (filter === 'upcoming') {
+      events = events.filter(event => new Date(event.date) >= today);
+    } else if (filter === 'past') {
+      events = events.filter(event => new Date(event.date) < today);
+    }
+
+    // Filter by search query
+    if (query.length > 0) {
+      const lowerQuery = query.toLowerCase();
+      events = events.filter(event => {
+        // Get artist name
+        const artist = artistsData.find(a => a.id === event.artistId);
+        const artistName = artist ? artist.name.toLowerCase() : '';
+        
+        return (
+          event.title.toLowerCase().includes(lowerQuery) ||
+          event.venue.toLowerCase().includes(lowerQuery) ||
+          artistName.includes(lowerQuery)
+        );
+      });
+    }
+
+    // Sort by date (upcoming first)
+    events.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    setFilteredEvents(events);
+  };
+
+  // Handle events search and filter changes
+  useEffect(() => {
+    searchEvents(eventsSearchQuery, dateFilter);
+  }, [eventsSearchQuery, dateFilter]);
+
+  // Search videos
+  const searchVideos = (query) => {
+    let videos = [...videosData];
+
+    // Filter by search query
+    if (query.length > 0) {
+      const lowerQuery = query.toLowerCase();
+      videos = videos.filter(video => 
+        video.title.toLowerCase().includes(lowerQuery)
+      );
+    }
+
+    // Sort by release date (newest first)
+    videos.sort((a, b) => new Date(b.releaseDate) - new Date(a.releaseDate));
+
+    setFilteredVideos(videos);
+  };
+
+  // Handle video search changes
+  useEffect(() => {
+    searchVideos(videosSearchQuery);
+  }, [videosSearchQuery]);
 
   // Handle navigation to artist page
   const navigateToArtist = (artist) => {
@@ -102,6 +186,76 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
       currentPage: 'search',
       selectedArtist: null,
       songListData: null
+    });
+  };
+
+  // Handle navigation to events page
+  const navigateToEvents = () => {
+    updateSearchState({
+      currentPage: 'events'
+    });
+  };
+
+  // Handle navigation back from events
+  const navigateBackFromEvents = () => {
+    updateSearchState({
+      currentPage: 'search'
+    });
+    setSelectedEvent(null);
+  };
+
+  // Handle navigation to videos page
+  const navigateToVideos = () => {
+    updateSearchState({
+      currentPage: 'videos'
+    });
+  };
+
+  // Handle navigation back from videos
+  const navigateBackFromVideos = () => {
+    updateSearchState({
+      currentPage: 'search'
+    });
+  };
+
+  // Format date for display
+  const formatEventDate = (dateString) => {
+    const date = new Date(dateString);
+    const options = { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    };
+    return date.toLocaleDateString('en-US', options);
+  };
+
+  // Handle video play
+  const handleVideoPlay = (video) => {
+    // Stop any current audio first
+    if (onStopAudio) {
+      onStopAudio();
+    }
+    // Navigate to video player page
+    setSelectedVideo(video);
+    updateSearchState({
+      currentPage: 'videoPlayer'
+    });
+  };
+
+  // Handle video load to get aspect ratio
+  const handleVideoLoad = (status) => {
+    if (status.naturalSize) {
+      const { width, height } = status.naturalSize;
+      setVideoAspectRatio(width / height);
+    }
+  };
+
+  // Close video player
+  const closeVideoPlayer = () => {
+    setSelectedVideo(null);
+    updateSearchState({
+      currentPage: 'videos'
     });
   };
 
@@ -149,12 +303,408 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
     <TouchableOpacity 
       style={[styles.categoryButton, { backgroundColor: item.color }]}
       onPress={() => {
-        // TODO: Navigate to category page
-        console.log(`Pressed ${item.title}`);
+        if (item.title === 'Live Events') {
+          navigateToEvents();
+        } else if (item.title === 'Music Videos') {
+          navigateToVideos();
+        } else {
+          // TODO: Navigate to other category pages
+          console.log(`Pressed ${item.title}`);
+        }
       }}
     >
       <Text style={styles.categoryButtonText}>{item.title}</Text>
     </TouchableOpacity>
+  );
+
+  // Render event item
+  const renderEventItem = ({ item }) => {
+    const artist = artistsData.find(a => a.id === item.artistId);
+    
+    return (
+      <TouchableOpacity 
+        style={styles.eventItem}
+        onPress={() => setSelectedEvent(item)}
+      >
+        <Image 
+          source={{ uri: artist?.image }} 
+          style={styles.eventArtistImage}
+        />
+        <View style={styles.eventInfo}>
+          <Text style={styles.eventVenue} numberOfLines={1}>
+            {item.venue}
+          </Text>
+          <Text style={styles.eventArtist} numberOfLines={1}>
+            {artist?.name}
+          </Text>
+          <Text style={styles.eventDate}>
+            {formatEventDate(item.date)}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  // Render event details modal/page
+  const renderEventDetails = () => {
+    if (!selectedEvent) return null;
+    
+    const artist = artistsData.find(a => a.id === selectedEvent.artistId);
+    
+    return (
+      <View style={styles.eventDetailsContainer}>
+        <View style={styles.eventDetailsHeader}>
+          <TouchableOpacity 
+            style={styles.eventBackButton}
+            onPress={() => setSelectedEvent(null)}
+          >
+            <FontAwesome name="chevron-left" size={20} color={palette.text} />
+          </TouchableOpacity>
+          <Text style={styles.eventDetailsTitle}>Event Details</Text>
+        </View>
+
+        <ScrollView style={styles.eventDetailsScroll} showsVerticalScrollIndicator={false}>
+          <View style={styles.eventDetailsContent}>
+            <Image 
+              source={{ uri: artist?.image }} 
+              style={styles.eventDetailsArtistImage}
+            />
+            
+            <Text style={styles.eventDetailsEventTitle}>{selectedEvent.title}</Text>
+            <Text style={styles.eventDetailsSubtext}>{selectedEvent.subtext}</Text>
+            
+            <View style={styles.eventDetailsInfo}>
+              <View style={styles.eventDetailRow}>
+                <FontAwesome name="user" size={16} color={palette.quaternary} />
+                <Text style={styles.eventDetailText}>{artist?.name}</Text>
+              </View>
+              
+              <View style={styles.eventDetailRow}>
+                <FontAwesome name="map-marker" size={16} color={palette.quaternary} />
+                <Text style={styles.eventDetailText}>{selectedEvent.venue}</Text>
+              </View>
+              
+              <View style={styles.eventDetailRow}>
+                <FontAwesome name="calendar" size={16} color={palette.quaternary} />
+                <Text style={styles.eventDetailText}>{formatEventDate(selectedEvent.date)}</Text>
+              </View>
+              
+              <View style={styles.eventDetailRow}>
+                <FontAwesome name="clock-o" size={16} color={palette.quaternary} />
+                <Text style={styles.eventDetailText}>{selectedEvent.showtime}</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity 
+              style={styles.ticketButton}
+              onPress={() => {
+                Linking.openURL(selectedEvent.ticketLink).catch(err => 
+                  console.error('Error opening ticket link:', err)
+                );
+              }}
+            >
+              <Text style={styles.ticketButtonText}>Get Tickets</Text>
+              <FontAwesome name="external-link" size={14} color={palette.text} />
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  };
+
+  // Get recommended videos (exclude current video)
+  const getRecommendedVideos = (currentVideoId) => {
+    return videosData
+      .filter(video => video.id !== currentVideoId)
+      .sort(() => Math.random() - 0.5) // Randomize
+      .slice(0, 6); // Show 6 recommendations
+  };
+
+  // Handle recommended video click
+  const handleRecommendedVideoClick = (video) => {
+    setSelectedVideo(video);
+    // Scroll to top to show the new video
+  };
+
+  // Render recommended video item
+  const renderRecommendedVideo = ({ item }) => {
+    const artist = artistsData.find(a => a.id === item.artistId);
+    
+    return (
+      <TouchableOpacity 
+        style={styles.recommendedVideoItem}
+        onPress={() => handleRecommendedVideoClick(item)}
+      >
+        <Image 
+          source={{ uri: item.thumbnail }} 
+          style={styles.recommendedVideoThumbnail}
+        />
+        <View style={styles.recommendedVideoInfo}>
+          <Text style={styles.recommendedVideoTitle} numberOfLines={2}>
+            {item.title}
+          </Text>
+          <Text style={styles.recommendedVideoArtist} numberOfLines={1}>
+            {artist?.name}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  // Render video player page
+  const renderVideoPlayer = () => {
+    if (!selectedVideo) return null;
+    
+    const artist = artistsData.find(a => a.id === selectedVideo.artistId);
+    const screenWidth = Dimensions.get('window').width;
+    const videoHeight = screenWidth / videoAspectRatio;
+    const recommendedVideos = getRecommendedVideos(selectedVideo.id);
+    
+    return (
+      <View style={styles.videoPlayerContainer}>
+        {/* Header */}
+        <View style={styles.videoPlayerHeader}>
+          <TouchableOpacity 
+            style={styles.videoPlayerBackButton}
+            onPress={closeVideoPlayer}
+          >
+            <FontAwesome name="chevron-left" size={24} color={palette.text} />
+          </TouchableOpacity>
+          <Text style={styles.videoPlayerHeaderTitle}>Now Playing</Text>
+        </View>
+
+        <ScrollView style={styles.videoPlayerScroll} showsVerticalScrollIndicator={false}>
+          {/* Video Player - Full width, no border radius */}
+          <View style={[styles.videoPlayerWrapper, { height: videoHeight }]}>
+            <Video
+              source={{ uri: selectedVideo.url }}
+              style={styles.videoPlayerVideo}
+              useNativeControls
+              resizeMode="contain"
+              shouldPlay={true}
+              isLooping={false}
+              onLoad={handleVideoLoad}
+            />
+          </View>
+
+          {/* Video Info */}
+          <View style={styles.videoPlayerInfo}>
+            <Text style={styles.videoPlayerTitle}>
+              {selectedVideo.title}
+            </Text>
+            <Text style={styles.videoPlayerArtist}>
+              {artist?.name}
+            </Text>
+          </View>
+
+          {/* Recommended Videos */}
+          <View style={styles.recommendedSection}>
+            <Text style={styles.recommendedSectionTitle}>Recommended</Text>
+            <FlatList
+              data={recommendedVideos}
+              renderItem={renderRecommendedVideo}
+              keyExtractor={(item) => item.id.toString()}
+              scrollEnabled={false}
+              ItemSeparatorComponent={() => <View style={styles.recommendedSeparator} />}
+            />
+          </View>
+        </ScrollView>
+      </View>
+    );
+  };
+
+  // Render video search result item
+  const renderVideoSearchItem = ({ item }) => {
+    const artist = artistsData.find(a => a.id === item.artistId);
+    
+    return (
+      <TouchableOpacity 
+        style={styles.videoSearchItem}
+        onPress={() => handleVideoPlay(item)}
+      >
+        <Image 
+          source={{ uri: item.thumbnail }} 
+          style={styles.videoSearchThumbnail}
+        />
+        <View style={styles.videoSearchInfo}>
+          <Text style={styles.videoSearchTitle} numberOfLines={2}>
+            {item.title}
+          </Text>
+          <Text style={styles.videoSearchArtist} numberOfLines={1}>
+            {artist?.name}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  // Render horizontal scrolling video thumbnail
+  const renderVideoThumbnail = ({ item }) => {
+    const artist = artistsData.find(a => a.id === item.artistId);
+    
+    return (
+      <TouchableOpacity 
+        style={styles.videoThumbnailItem}
+        onPress={() => handleVideoPlay(item)}
+      >
+        <Image 
+          source={{ uri: item.thumbnail }} 
+          style={styles.videoThumbnailImage}
+        />
+        <View style={styles.videoThumbnailOverlay}>
+          <FontAwesome name="play" size={24} color="white" />
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  // Get latest videos for scrolling section
+  const getLatestVideos = () => {
+    return [...videosData].sort((a, b) => new Date(b.releaseDate) - new Date(a.releaseDate));
+  };
+
+  // Render videos page
+  const renderVideosPage = () => (
+    <View style={styles.container}>
+      <View style={styles.videosHeader}>
+        <TouchableOpacity 
+          style={styles.videosBackButton}
+          onPress={navigateBackFromVideos}
+        >
+          <FontAwesome name="chevron-left" size={20} color={palette.text} />
+        </TouchableOpacity>
+        <Text style={styles.videosTitle}>Music Videos</Text>
+      </View>
+
+      {/* Horizontal scrolling videos section */}
+      <View style={styles.latestVideosSection}>
+        <FlatList
+          data={getLatestVideos()}
+          renderItem={renderVideoThumbnail}
+          keyExtractor={(item) => item.id.toString()}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.videosThumbnailList}
+        />
+      </View>
+
+      {/* Search Bar */}
+      <View style={styles.searchBarContainer}>
+        <FontAwesome 
+          name="search" 
+          size={16} 
+          color={palette.quaternary} 
+          style={styles.searchIcon}
+        />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search videos by title..."
+          placeholderTextColor={palette.quaternary}
+          value={videosSearchQuery}
+          onChangeText={setVideosSearchQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+      </View>
+
+      {/* Videos Search Results */}
+      <FlatList
+        data={filteredVideos}
+        renderItem={renderVideoSearchItem}
+        keyExtractor={(item) => item.id.toString()}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.videosListContainer}
+        ItemSeparatorComponent={() => <View style={styles.videosSeparator} />}
+        ListEmptyComponent={() => (
+          <View style={styles.noVideosContainer}>
+            <FontAwesome name="video-camera" size={48} color={palette.quaternary} />
+            <Text style={styles.noVideosText}>No videos found</Text>
+            <Text style={styles.noVideosSubtext}>
+              Try adjusting your search terms
+            </Text>
+          </View>
+        )}
+       />
+     </View>
+   );
+
+  // Render events page
+  const renderEventsPage = () => (
+    <View style={styles.container}>
+      <View style={styles.eventsHeader}>
+        <TouchableOpacity 
+          style={styles.eventsBackButton}
+          onPress={navigateBackFromEvents}
+        >
+          <FontAwesome name="chevron-left" size={20} color={palette.text} />
+        </TouchableOpacity>
+        <Text style={styles.eventsTitle}>Live Events</Text>
+      </View>
+
+      {/* Search Bar */}
+      <View style={styles.searchBarContainer}>
+        <FontAwesome 
+          name="search" 
+          size={16} 
+          color={palette.quaternary} 
+          style={styles.searchIcon}
+        />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search events, artists, or venues..."
+          placeholderTextColor={palette.quaternary}
+          value={eventsSearchQuery}
+          onChangeText={setEventsSearchQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+      </View>
+
+      {/* Date Filters */}
+      <View style={styles.filtersContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {['all', 'upcoming', 'past'].map((filter) => (
+            <TouchableOpacity
+              key={filter}
+              style={[
+                styles.filterButton,
+                dateFilter === filter && styles.activeFilterButton
+              ]}
+              onPress={() => setDateFilter(filter)}
+            >
+              <Text style={[
+                styles.filterButtonText,
+                dateFilter === filter && styles.activeFilterButtonText
+              ]}>
+                {filter.charAt(0).toUpperCase() + filter.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Events List */}
+      <FlatList
+        data={filteredEvents}
+        renderItem={renderEventItem}
+        keyExtractor={(item) => item.id.toString()}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.eventsListContainer}
+        ItemSeparatorComponent={() => <View style={styles.eventsSeparator} />}
+        ListEmptyComponent={() => (
+          <View style={styles.noEventsContainer}>
+            <FontAwesome name="calendar" size={48} color={palette.quaternary} />
+            <Text style={styles.noEventsText}>No events found</Text>
+            <Text style={styles.noEventsSubtext}>
+              Try adjusting your search or filters
+            </Text>
+          </View>
+        )}
+      />
+
+      {/* Event Details Modal */}
+      {selectedEvent && renderEventDetails()}
+    </View>
   );
 
   // Render main search page
@@ -241,6 +791,18 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
         onStopAudio={onStopAudio}
       />
     );
+  }
+
+  if (currentPage === 'events') {
+    return renderEventsPage();
+  }
+
+  if (currentPage === 'videos') {
+    return renderVideosPage();
+  }
+
+  if (currentPage === 'videoPlayer') {
+    return renderVideoPlayer();
   }
 
   return renderSearchPage();
@@ -356,6 +918,379 @@ const styles = StyleSheet.create({
   },
   categoryRow: {
     justifyContent: 'space-between',
+  },
+  
+  // Events page styles
+  eventsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 50,
+    paddingBottom: 20,
+  },
+  eventsBackButton: {
+    padding: 10,
+    marginRight: 10,
+  },
+  eventsTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: palette.text,
+  },
+  filtersContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  filterButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginRight: 12,
+    borderRadius: 20,
+    backgroundColor: palette.secondary,
+  },
+  activeFilterButton: {
+    backgroundColor: palette.tertiary,
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: palette.quaternary,
+  },
+  activeFilterButtonText: {
+    color: palette.text,
+  },
+  eventsListContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 100,
+  },
+  eventItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 15,
+  },
+  eventArtistImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    marginRight: 15,
+  },
+  eventInfo: {
+    flex: 1,
+  },
+  eventVenue: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: palette.text,
+    marginBottom: 4,
+  },
+  eventArtist: {
+    fontSize: 14,
+    color: palette.quaternary,
+    marginBottom: 2,
+  },
+  eventDate: {
+    fontSize: 12,
+    color: palette.quaternary,
+  },
+  eventsSeparator: {
+    height: 1,
+    backgroundColor: palette.secondary,
+    marginLeft: 75,
+  },
+  noEventsContainer: {
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+  },
+  noEventsText: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: palette.text,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  noEventsSubtext: {
+    fontSize: 14,
+    color: palette.quaternary,
+    textAlign: 'center',
+  },
+  
+  // Event details styles
+  eventDetailsContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: palette.background,
+    zIndex: 1000,
+  },
+  eventDetailsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 50,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.secondary,
+  },
+  eventBackButton: {
+    padding: 10,
+    marginRight: 10,
+  },
+  eventDetailsTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: palette.text,
+  },
+  eventDetailsScroll: {
+    flex: 1,
+  },
+  eventDetailsContent: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  eventDetailsArtistImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    marginBottom: 20,
+  },
+  eventDetailsEventTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: palette.text,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  eventDetailsSubtext: {
+    fontSize: 16,
+    color: palette.quaternary,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginBottom: 30,
+  },
+  eventDetailsInfo: {
+    width: '100%',
+    marginBottom: 30,
+  },
+  eventDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  eventDetailText: {
+    fontSize: 16,
+    color: palette.text,
+    marginLeft: 12,
+    flex: 1,
+  },
+  ticketButton: {
+    backgroundColor: palette.tertiary,
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ticketButtonText: {
+    color: palette.text,
+    fontSize: 16,
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  
+  // Videos page styles
+  videosHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 50,
+    paddingBottom: 20,
+  },
+  videosBackButton: {
+    padding: 10,
+    marginRight: 10,
+  },
+  videosTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: palette.text,
+  },
+  latestVideosSection: {
+    marginBottom: 20,
+  },
+  videosThumbnailList: {
+    paddingHorizontal: 20,
+  },
+  videoThumbnailItem: {
+    width: 160,
+    height: 90,
+    marginRight: 15,
+    position: 'relative',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  videoThumbnailImage: {
+    width: '100%',
+    height: '100%',
+  },
+  videoThumbnailOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  videosListContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 100,
+  },
+  videoSearchItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 15,
+  },
+  videoSearchThumbnail: {
+    width: 120,
+    height: 68,
+    borderRadius: 8,
+    marginRight: 15,
+  },
+  videoSearchInfo: {
+    flex: 1,
+  },
+  videoSearchTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: palette.text,
+    marginBottom: 4,
+    lineHeight: 20,
+  },
+  videoSearchArtist: {
+    fontSize: 14,
+    color: palette.quaternary,
+  },
+  videosSeparator: {
+    height: 1,
+    backgroundColor: palette.secondary,
+    marginLeft: 135,
+  },
+  noVideosContainer: {
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+  },
+  noVideosText: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: palette.text,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  noVideosSubtext: {
+    fontSize: 14,
+    color: palette.quaternary,
+    textAlign: 'center',
+  },
+  
+  // Video Player Page styles
+  videoPlayerContainer: {
+    flex: 1,
+    backgroundColor: palette.background,
+  },
+  videoPlayerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 50,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.secondary,
+  },
+  videoPlayerBackButton: {
+    padding: 10,
+    marginRight: 15,
+  },
+  videoPlayerHeaderTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: palette.text,
+  },
+  videoPlayerScroll: {
+    flex: 1,
+  },
+  videoPlayerWrapper: {
+    width: '100%',
+    backgroundColor: 'black',
+  },
+  videoPlayerVideo: {
+    width: '100%',
+    height: '100%',
+  },
+  videoPlayerInfo: {
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.secondary,
+  },
+  videoPlayerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: palette.text,
+    marginBottom: 6,
+    lineHeight: 24,
+  },
+  videoPlayerArtist: {
+    fontSize: 14,
+    color: palette.quaternary,
+  },
+  recommendedSection: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 100,
+  },
+  recommendedSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: palette.text,
+    marginBottom: 15,
+  },
+  recommendedVideoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  recommendedVideoThumbnail: {
+    width: 120,
+    height: 68,
+    borderRadius: 6,
+    marginRight: 15,
+  },
+  recommendedVideoInfo: {
+    flex: 1,
+  },
+  recommendedVideoTitle: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: palette.text,
+    marginBottom: 4,
+    lineHeight: 20,
+  },
+  recommendedVideoArtist: {
+    fontSize: 13,
+    color: palette.quaternary,
+  },
+  recommendedSeparator: {
+    height: 1,
+    backgroundColor: palette.secondary,
+    marginLeft: 135,
   },
 });
 

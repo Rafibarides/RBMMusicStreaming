@@ -14,7 +14,7 @@ import { palette } from '../utils/Colors';
 import { useMusicData } from '../contexts/MusicDataContext';
 
 const Playlists = ({ playSong, initialPlaylistId, onClearInitialPlaylist }) => {
-  const { playlists, likedSongs, deletePlaylist, isLoading } = useMusicData();
+  const { playlists, likedSongs, deletePlaylist, toggleLikeSong, isLoading } = useMusicData();
   const [selectedPlaylist, setSelectedPlaylist] = useState(null);
 
   // Create liked songs playlist
@@ -43,6 +43,15 @@ const Playlists = ({ playSong, initialPlaylistId, onClearInitialPlaylist }) => {
       }
     }
   }, [initialPlaylistId, allPlaylists, onClearInitialPlaylist]);
+
+  // Update selected playlist when likedSongs changes (for real-time updates)
+  useEffect(() => {
+    if (selectedPlaylist && selectedPlaylist.isLikedSongs) {
+      setSelectedPlaylist({
+        ...likedSongsPlaylist
+      });
+    }
+  }, [likedSongs]);
 
   const handlePlaylistPress = (playlist) => {
     if (playlist.songs.length > 0) {
@@ -76,6 +85,20 @@ const Playlists = ({ playSong, initialPlaylistId, onClearInitialPlaylist }) => {
         }
       ]
     );
+  };
+
+  const handleUnlikeSong = async (song) => {
+    try {
+      const result = await toggleLikeSong(song);
+      if (result === false) {
+        // Song was successfully unliked, no need to do anything else
+        // The context will automatically update the likedSongs state
+      } else if (result === null) {
+        Alert.alert('Error', 'Failed to remove song from liked songs.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to remove song from liked songs.');
+    }
   };
 
   const renderPlaylistItem = ({ item }) => (
@@ -124,29 +147,46 @@ const Playlists = ({ playSong, initialPlaylistId, onClearInitialPlaylist }) => {
     </TouchableOpacity>
   );
 
-  const renderSongItem = ({ item, index }) => (
-    <TouchableOpacity 
-      style={styles.songItem}
-      onPress={() => {
-        if (playSong && selectedPlaylist) {
-          playSong(item, selectedPlaylist.songs, index);
-        }
-      }}
-    >
-      <Image 
-        source={{ uri: item.coverArt }} 
-        style={styles.songCover}
-      />
-      <View style={styles.songInfo}>
-        <Text style={styles.songTitle} numberOfLines={1}>
-          {item.title || item.name}
-        </Text>
-        <Text style={styles.songArtist} numberOfLines={1}>
-          {item.artist}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
+  const renderSongItem = ({ item, index }) => {
+    const isLikedSongsPlaylist = selectedPlaylist?.isLikedSongs;
+    
+    return (
+      <TouchableOpacity 
+        style={styles.songItem}
+        onPress={() => {
+          if (playSong && selectedPlaylist) {
+            playSong(item, selectedPlaylist.songs, index);
+          }
+        }}
+      >
+        <Image 
+          source={{ uri: item.coverArt }} 
+          style={styles.songCover}
+        />
+        <View style={styles.songInfo}>
+          <Text style={styles.songTitle} numberOfLines={1}>
+            {item.title || item.name}
+          </Text>
+          <Text style={styles.songArtist} numberOfLines={1}>
+            {item.artist}
+          </Text>
+        </View>
+        
+        {/* Show heart icon for liked songs playlist */}
+        {isLikedSongsPlaylist && (
+          <TouchableOpacity 
+            style={styles.unlikeButton}
+            onPress={(e) => {
+              e.stopPropagation(); // Prevent song from playing when tapping heart
+              handleUnlikeSong(item);
+            }}
+          >
+            <FontAwesome name="heart" size={18} color={palette.tertiary} />
+          </TouchableOpacity>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -418,6 +458,10 @@ const styles = StyleSheet.create({
   songArtist: {
     fontSize: 14,
     color: palette.quaternary,
+  },
+  unlikeButton: {
+    padding: 10,
+    marginLeft: 10,
   },
   likedSongsItem: {
     borderBottomWidth: 1,

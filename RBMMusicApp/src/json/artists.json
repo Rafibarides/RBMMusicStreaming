@@ -1,12 +1,12 @@
 [
     {
         "id": 1,
-        "name": "Joey",
+        "name": "Joe Hamburg",
         "image": "https://i.pinimg.com/736x/3c/b5/00/3cb5006d920ab3293da41860dcef7bd4.jpg",
         "singles": [
             {
                 "id": 1,
-                "name": "Dance With Me",
+                "name": "Sunny Mornings",
                 "coverArt": "https://blog.pixpa.com/wp-content/uploads/2021/03/word-image-122.jpeg",
                 "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
                 "releaseDate": "2021-01-01",
@@ -21,13 +21,13 @@
                 "songs": [
                     {
                         "id": 2,
-                        "name": "After Dark",
+                        "name": "The Way You Look Tonight",
                         "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
                         "albumId": 1
                     },
                     {
                         "id": 3,
-                        "name": "Summer Nights",
+                        "name": "Summer Love",
                         "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
                         "albumId": 1
                     }
@@ -39,12 +39,12 @@
     },
     {
         "id": 2,
-        "name": "Nachi Bryer",
+        "name": "Devin Bryer",
         "image": "https://img.freepik.com/premium-photo/close-up-portrait-millennial-boy-teenager-seriously-looking-camera-handsome-beautiful-young-man_516988-1669.jpg"
     },
     {
         "id": 3,
-        "name": "Kyle Spacey",
+        "name": "Kyle K",
         "image": "https://www.shutterstock.com/image-photo/handsome-calm-man-portrait-young-600nw-1615127239.jpg"
     },
     {
@@ -55,7 +55,7 @@
     {
         "id": 5,
         "name": "Rafi Barides",
-        "image": "https://i.scdn.co/image/ab67616100005174cc3b1ba3abad6e95ab3d4597",
+        "image": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/rafiBarides.png",
         "albums": [
             {
                 "id": 2,

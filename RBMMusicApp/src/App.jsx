@@ -741,7 +741,13 @@ const AppContent = () => {
   const renderScreen = () => {
     switch (activeTab) {
       case 'Dashboard':
-        return <Dashboard playSong={playSong} onNavigateToPlaylists={handlePlaylistNavigation} />;
+        return (
+          <Dashboard 
+            playSong={playSong} 
+            onNavigateToPlaylists={handlePlaylistNavigation}
+            onNavigateToArtist={handleArtistNavigation}
+          />
+        );
       case 'Search':
         return (
           <Search 
@@ -755,7 +761,13 @@ const AppContent = () => {
       case 'Playlists':
         return <Playlists playSong={playSong} initialPlaylistId={initialPlaylistId} onClearInitialPlaylist={() => setInitialPlaylistId(null)} />;
       default:
-        return <Dashboard playSong={playSong} onNavigateToPlaylists={handlePlaylistNavigation} />;
+        return (
+          <Dashboard 
+            playSong={playSong} 
+            onNavigateToPlaylists={handlePlaylistNavigation}
+            onNavigateToArtist={handleArtistNavigation}
+          />
+        );
     }
   };
 
