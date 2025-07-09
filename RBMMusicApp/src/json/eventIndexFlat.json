@@ -1,0 +1,53 @@
+[
+    {
+      "id": 1,
+      "artistId": 1,
+      "venue": "Brooklyn Steel",
+      "date": "2025-08-15",
+      "title": "Joey Live: After Dark",
+      "subtext": "A night of indie pop and soul",
+      "showtime": "8:00 PM",
+      "ticketLink": "https://www.brooklynsteel.com/events/joey"
+    },
+    {
+      "id": 2,
+      "artistId": 2,
+      "venue": "Mercury Lounge",
+      "date": "2025-08-22",
+      "title": "Nachi Bryer Unplugged",
+      "subtext": "An intimate evening with Nachi Bryer",
+      "showtime": "7:30 PM",
+      "ticketLink": "https://www.mercuryloungenyc.com/events/nachi-bryer"
+    },
+    {
+      "id": 3,
+      "artistId": 3,
+      "venue": "Rockwood Music Hall",
+      "date": "2025-09-01",
+      "title": "Kyle Spacey: Urban Soul Sessions",
+      "subtext": "Neo-soul grooves and city vibes",
+      "showtime": "9:00 PM",
+      "ticketLink": "https://www.rockwoodmusichall.com/shows/kyle-spacey"
+    },
+    {
+      "id": 4,
+      "artistId": 4,
+      "venue": "The Bowery Ballroom",
+      "date": "2025-09-10",
+      "title": "Ben Lerner and Friends",
+      "subtext": "Live showcase of new work",
+      "showtime": "8:30 PM",
+      "ticketLink": "https://www.boweryballroom.com/events/ben-lerner"
+    },
+    {
+      "id": 5,
+      "artistId": 5,
+      "venue": "Le Poisson Rouge",
+      "date": "2025-09-20",
+      "title": "Rafi Barides: Rags to Rags Live",
+      "subtext": "A full performance of the EP, plus unreleased tracks",
+      "showtime": "9:00 PM",
+      "ticketLink": "https://www.lpr.com/events/rafi-barides"
+    }
+  ]
+  

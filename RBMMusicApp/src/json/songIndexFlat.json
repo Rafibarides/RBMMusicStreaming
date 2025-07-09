@@ -32,6 +32,29 @@
       "coverArt": "https://progradedigital.com/wp-content/uploads/2023/04/31-Main-Image.png",
       "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
       "releaseDate": "2020-01-01"
+    },
+    {
+      "id": 4,
+      "title": "Remind Me",
+      "artist": "Rafi Barides",
+      "artistId": 5,
+      "album": "Rags to Rags",
+      "albumId": 2,
+      "type": "album",
+      "coverArt": "https://i.scdn.co/image/ab67616100005174cc3b1ba3abad6e95ab3d4597",
+      "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/RemindMe.mp3",
+      "releaseDate": "2020-01-01",
+      "lyrics": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/RemindMe.json",
+      "credits": [
+        {
+          "name": "Rafi Barides",
+          "role": "Producer"
+        },
+        {
+          "name": "Nicky V",
+          "role": "Guitar"
+        }
+      ]
     }
   ]
   

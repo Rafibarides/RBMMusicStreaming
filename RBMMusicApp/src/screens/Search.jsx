@@ -19,7 +19,7 @@ import songsData from '../json/songIndexFlat.json';
 // Import pages
 import ArtistPage from '../pages/ArtistPage';
 
-const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSong }) => {
+const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSong, onStopAudio }) => {
   const {
     searchQuery,
     searchResults,
@@ -160,7 +160,12 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
   // Render main search page
   const renderSearchPage = () => (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="on-drag"
+      >
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.searchTitle}>Search</Text>
@@ -193,6 +198,7 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
               renderItem={renderSearchItem}
               keyExtractor={(item) => item.id}
               scrollEnabled={false}
+              keyboardShouldPersistTaps="always"
               ItemSeparatorComponent={() => <View style={styles.separator} />}
             />
           </View>
@@ -214,6 +220,7 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
               keyExtractor={(item) => item.id.toString()}
               numColumns={2}
               scrollEnabled={false}
+              keyboardShouldPersistTaps="always"
               columnWrapperStyle={styles.categoryRow}
             />
           </View>
@@ -231,6 +238,7 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
         searchState={searchState}
         updateSearchState={updateSearchState}
         playSong={playSong}
+        onStopAudio={onStopAudio}
       />
     );
   }

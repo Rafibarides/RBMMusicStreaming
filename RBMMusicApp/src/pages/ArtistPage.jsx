@@ -7,19 +7,29 @@ import {
   Image,
   TouchableOpacity,
   FlatList,
+  Dimensions,
+  Linking,
 } from 'react-native';
+import { Video } from 'expo-av';
 import { FontAwesome } from '@expo/vector-icons';
 import { GestureHandlerRootView, PanGestureHandler } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedGestureHandler, useAnimatedStyle, runOnJS, withSpring } from 'react-native-reanimated';
 import { palette } from '../utils/Colors';
 import SongListPage from './SongListPage';
+import songIndexFlat from '../json/songIndexFlat.json';
+import eventIndexFlat from '../json/eventIndexFlat.json';
+import videoIndexFlat from '../json/videoIndexFlat.json';
 
-const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong }) => {
+const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, onStopAudio }) => {
   const [activeTab, setActiveTab] = useState('Music');
+  const [videoAspectRatios, setVideoAspectRatios] = useState({});
   
   // Use search state if provided, otherwise fall back to local state
   const currentView = searchState?.songListData ? 'songList' : 'profile';
   const songListData = searchState?.songListData || null;
+
+  // Get screen width for artist image
+  const screenWidth = Dimensions.get('window').width;
 
   // Gesture handling for swipe back
   const translateX = useSharedValue(0);
@@ -76,6 +86,9 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong }
     // Add singles
     if (artist.singles) {
       artist.singles.forEach(single => {
+        // Find matching song in songIndexFlat to get credits
+        const flatSong = songIndexFlat.find(s => s.id === single.id);
+        
         allSongs.push({
           id: single.id,
           title: single.name,
@@ -83,6 +96,8 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong }
           artist: artist.name,
           coverArt: single.coverArt,
           audio: single.audio,
+          lyrics: single.lyrics, // Include lyrics property
+          credits: single.credits || flatSong?.credits, // Use credits from song first, then fallback to flatSong
           type: 'single'
         });
       });
@@ -93,6 +108,9 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong }
       artist.albums.forEach(album => {
         if (album.songs) {
           album.songs.forEach(song => {
+            // Find matching song in songIndexFlat to get credits
+            const flatSong = songIndexFlat.find(s => s.id === song.id);
+            
             allSongs.push({
               id: song.id,
               title: song.name,
@@ -101,6 +119,8 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong }
               album: album.name,
               coverArt: album.coverArt,
               audio: song.audio,
+              lyrics: song.lyrics, // Include lyrics property
+              credits: song.credits || flatSong?.credits, // Use credits from song first, then fallback to flatSong
               albumId: song.albumId,
               type: 'album'
             });
@@ -128,17 +148,24 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong }
 
   // Navigate to album songs
   const navigateToAlbum = (album) => {
-    const albumSongs = album.songs ? album.songs.map(song => ({
-      id: song.id,
-      title: song.name,
-      name: song.name,
-      artist: artist.name,
-      album: album.name,
-      coverArt: album.coverArt,
-      audio: song.audio,
-      albumId: song.albumId,
-      type: 'album'
-    })) : [];
+    const albumSongs = album.songs ? album.songs.map(song => {
+      // Find matching song in songIndexFlat to get credits
+      const flatSong = songIndexFlat.find(s => s.id === song.id);
+      
+      return {
+        id: song.id,
+        title: song.name,
+        name: song.name,
+        artist: artist.name,
+        album: album.name,
+        coverArt: album.coverArt,
+        audio: song.audio,
+        lyrics: song.lyrics, // Include lyrics property
+        credits: song.credits || flatSong?.credits, // Use credits from song first, then fallback to flatSong
+        albumId: song.albumId,
+        type: 'album'
+      };
+    }) : [];
     
     const newSongListData = {
       songs: albumSongs,
@@ -183,6 +210,9 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong }
       } else {
         // Play the single
         if (playSong) {
+          // Find matching song in songIndexFlat to get credits
+          const flatSong = songIndexFlat.find(s => s.id === data.id);
+          
           const singleData = {
             id: data.id,
             title: data.name,
@@ -190,6 +220,8 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong }
             artist: artist.name,
             coverArt: data.coverArt,
             audio: data.audio,
+            lyrics: data.lyrics, // Include lyrics property
+            credits: data.credits || flatSong?.credits, // Use credits from song first, then fallback to flatSong
             type: 'single'
           };
           playSong(singleData, [singleData], 0);
@@ -249,19 +281,199 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong }
     </View>
   );
 
+  // Handle video load to get natural dimensions
+  const handleVideoLoad = (videoId, status) => {
+    if (status.naturalSize) {
+      const { width, height } = status.naturalSize;
+      const aspectRatio = width / height;
+      setVideoAspectRatios(prev => ({
+        ...prev,
+        [videoId]: aspectRatio
+      }));
+    }
+  };
+
+  // Handle video play - stop any current audio
+  const handleVideoPlay = () => {
+    if (onStopAudio) {
+      onStopAudio();
+    }
+  };
+
+  // Render single video item
+  const renderVideoItem = (video) => {
+    const aspectRatio = videoAspectRatios[video.id];
+    const screenWidth = Dimensions.get('window').width - 40; // Account for padding
+    const calculatedHeight = aspectRatio ? screenWidth / aspectRatio : 200;
+    
+    return (
+      <View key={video.id} style={styles.videoItem}>
+        <View style={[styles.videoContainer, { height: calculatedHeight }]}>
+          <Video
+            source={{ uri: video.url }}
+            style={styles.videoPlayer}
+            useNativeControls
+            resizeMode="contain"
+            isLooping={false}
+            shouldPlay={false}
+            onLoad={(status) => handleVideoLoad(video.id, status)}
+            onPlaybackStatusUpdate={(status) => {
+              if (status.isLoaded && status.isPlaying) {
+                handleVideoPlay();
+              }
+            }}
+          />
+        </View>
+        <Text style={styles.videoTitle}>{video.title}</Text>
+      </View>
+    );
+  };
+
   // Render video content
-  const renderVideoContent = () => (
-    <View style={styles.emptyStateContainer}>
-      <Text style={styles.emptyStateText}>This artist hasn't uploaded any videos</Text>
+  const renderVideoContent = () => {
+    const artistVideos = getArtistVideos();
+
+    if (artistVideos.length === 0) {
+      return (
+        <View style={styles.emptyStateContainer}>
+          <FontAwesome name="video-camera" size={48} color={palette.quaternary} />
+          <Text style={styles.emptyStateText}>This artist hasn't uploaded any videos</Text>
+          <Text style={styles.emptyStateSubtext}>
+            Check back later for new video content
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.videosContainer}>
+        <Text style={styles.sectionTitle}>Videos</Text>
+        {artistVideos.map(video => renderVideoItem(video))}
+      </View>
+    );
+  };
+
+  // Get videos for current artist
+  const getArtistVideos = () => {
+    return videoIndexFlat.filter(video => video.artistId === artist.id);
+  };
+
+  // Get events for current artist
+  const getArtistEvents = () => {
+    const artistEvents = eventIndexFlat.filter(event => event.artistId === artist.id);
+    
+    // Sort by date (upcoming first)
+    return artistEvents.sort((a, b) => new Date(a.date) - new Date(b.date));
+  };
+
+  // Handle ticket link press
+  const handleTicketPress = (ticketLink) => {
+    Linking.openURL(ticketLink).catch(err => 
+      console.error('Error opening ticket link:', err)
+    );
+  };
+
+  // Format date for display
+  const formatEventDate = (dateString) => {
+    const date = new Date(dateString);
+    const options = { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    };
+    return date.toLocaleDateString('en-US', options);
+  };
+
+  // Render single event item
+  const renderEventItem = (event) => (
+    <View key={event.id} style={styles.eventItem}>
+      <View style={styles.eventHeader}>
+        <Text style={styles.eventTitle}>{event.title}</Text>
+        <Text style={styles.eventDate}>{formatEventDate(event.date)}</Text>
+      </View>
+      
+      <Text style={styles.eventSubtext}>{event.subtext}</Text>
+      
+      <View style={styles.eventDetails}>
+        <View style={styles.eventDetailRow}>
+          <FontAwesome name="map-marker" size={14} color={palette.quaternary} />
+          <Text style={styles.eventVenue}>{event.venue}</Text>
+        </View>
+        <View style={styles.eventDetailRow}>
+          <FontAwesome name="clock-o" size={14} color={palette.quaternary} />
+          <Text style={styles.eventShowtime}>{event.showtime}</Text>
+        </View>
+      </View>
+
+      <TouchableOpacity 
+        style={styles.ticketButton}
+        onPress={() => handleTicketPress(event.ticketLink)}
+      >
+        <Text style={styles.ticketButtonText}>Get Tickets</Text>
+        <FontAwesome name="external-link" size={14} color={palette.text} />
+      </TouchableOpacity>
     </View>
   );
 
   // Render events content
-  const renderEventsContent = () => (
-    <View style={styles.emptyStateContainer}>
-      <Text style={styles.emptyStateText}>No upcoming events</Text>
-    </View>
-  );
+  const renderEventsContent = () => {
+    const artistEvents = getArtistEvents();
+
+    if (artistEvents.length === 0) {
+      return (
+        <View style={styles.emptyStateContainer}>
+          <FontAwesome name="calendar" size={48} color={palette.quaternary} />
+          <Text style={styles.emptyStateText}>No upcoming events</Text>
+          <Text style={styles.emptyStateSubtext}>
+            Check back later for tour announcements
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.eventsContainer}>
+        <Text style={styles.sectionTitle}>Upcoming Events</Text>
+        {artistEvents.map(event => renderEventItem(event))}
+      </View>
+    );
+  };
+
+  // Render support content
+  const renderSupportContent = () => {
+    const artistName = artist.name;
+    const hasSupportLink = artist.supportLink;
+
+    return (
+      <View style={styles.supportContainer}>
+        <Text style={styles.supportDescription}>
+          {artistName} has made their music free to stream on RBM Music. They did this to connect 
+          directly with their fans and allow you to experience their art in the way that they intended. 
+          Support them!
+        </Text>
+        
+        {hasSupportLink ? (
+          <TouchableOpacity 
+            style={styles.supportButton}
+            onPress={() => {
+              Linking.openURL(artist.supportLink).catch(err => 
+                console.error('Error opening support link:', err)
+              );
+            }}
+          >
+            <FontAwesome name="dollar" size={16} color={palette.text} style={styles.supportIcon} />
+            <Text style={styles.supportButtonText}>Support</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.noSupportText}>
+            {artistName} has not provided a support link, but they want to share their music with you. 
+            Show them love by listening to their tracks and sharing their music with others!
+          </Text>
+        )}
+      </View>
+    );
+  };
 
   // Get content based on active tab
   const getTabContent = () => {
@@ -272,6 +484,8 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong }
         return renderVideoContent();
       case 'Events':
         return renderEventsContent();
+      case 'Support Me':
+        return renderSupportContent();
       default:
         return renderMusicContent();
     }
@@ -332,7 +546,7 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong }
 
             {/* Tab Menu */}
             <View style={styles.tabMenu}>
-              {['Music', 'Video', 'Events'].map((tab) => (
+              {['Music', 'Video', 'Events', 'Support Me'].map((tab) => (
                 <TouchableOpacity
                   key={tab}
                   style={[
@@ -381,13 +595,12 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     alignItems: 'center',
-    paddingTop: 80,
     paddingBottom: 20,
   },
   artistImage: {
-    width: 250,
-    height: 250,
-    borderRadius: 8,
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').width,
+    borderRadius: 0,
   },
   artistInfo: {
     paddingHorizontal: 20,
@@ -429,16 +642,16 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   tabButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginRight: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginRight: 12,
   },
   activeTabButton: {
     borderBottomWidth: 2,
     borderBottomColor: palette.text,
   },
   tabButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     color: palette.quaternary,
     fontWeight: '500',
   },
@@ -520,6 +733,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: palette.secondary,
     marginTop: 10,
+    marginBottom: 80, 
   },
   allReleasesText: {
     fontSize: 16,
@@ -531,15 +745,158 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyStateText: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '500',
+    color: palette.text,
+    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
     color: palette.quaternary,
     textAlign: 'center',
+    lineHeight: 20,
   },
   errorText: {
     fontSize: 18,
     color: palette.text,
     textAlign: 'center',
     marginTop: 100,
+  },
+  supportContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  supportDescription: {
+    fontSize: 14,
+    color: palette.text,
+    opacity: 0.7,
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  supportButton: {
+    backgroundColor: palette.black,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 80,
+  },
+  supportIcon: {
+    marginRight: 8,
+  },
+  supportButtonText: {
+    color: palette.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  noSupportText: {
+    fontSize: 14,
+    color: palette.quaternary,
+    opacity: 0.7,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  
+  // Events styles
+  eventsContainer: {
+    paddingBottom: 20,
+    marginBottom: 80,
+  },
+  eventItem: {
+    backgroundColor: palette.secondary,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  eventHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  eventTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: palette.text,
+    flex: 1,
+    marginRight: 12,
+  },
+  eventDate: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: palette.tertiary,
+  },
+  eventSubtext: {
+    fontSize: 14,
+    color: palette.quaternary,
+    marginBottom: 12,
+    fontStyle: 'italic',
+  },
+  eventDetails: {
+    marginBottom: 16,
+  },
+  eventDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  eventVenue: {
+    fontSize: 14,
+    color: palette.text,
+    marginLeft: 8,
+    flex: 1,
+  },
+  eventShowtime: {
+    fontSize: 14,
+    color: palette.text,
+    marginLeft: 8,
+  },
+  ticketButton: {
+    backgroundColor: palette.tertiary,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+  },
+  ticketButtonText: {
+    color: palette.text,
+    fontSize: 14,
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  
+  // Video styles
+  videosContainer: {
+    paddingBottom: 20,
+    marginBottom: 80,
+  },
+  videoItem: {
+    marginBottom: 24,
+  },
+  videoContainer: {
+    width: '100%',
+    overflow: 'hidden',
+    backgroundColor: palette.background,
+  },
+  videoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: palette.text,
+    marginTop: 12,
+  },
+  videoPlayer: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'transparent',
   },
 });
 

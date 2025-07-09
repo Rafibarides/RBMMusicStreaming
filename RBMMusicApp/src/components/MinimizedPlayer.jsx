@@ -1,87 +1,217 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, runOnJS } from 'react-native-reanimated';
 import { palette } from '../utils/Colors';
 
 const MinimizedPlayer = ({ 
   song, 
   isPlaying, 
+  isNavigating = false,
   onTogglePlay, 
   onPress, 
   onNext,
+  onClose,
   position = 0,
   duration = 0
 }) => {
-  if (!song) return null;
+  const [showCloseButton, setShowCloseButton] = useState(false);
+  const translateY = useSharedValue(0);
+  const opacity = useSharedValue(1);
+  const closeButtonTimeout = useRef(null);
+
+  // Reset close button state when song changes
+  useEffect(() => {
+    setShowCloseButton(false);
+    translateY.value = 0;
+    opacity.value = 1;
+    
+    // Clear any existing timeout
+    if (closeButtonTimeout.current) {
+      clearTimeout(closeButtonTimeout.current);
+      closeButtonTimeout.current = null;
+    }
+  }, [song?.id]);
+
+  // Auto-hide close button after 3 seconds
+  useEffect(() => {
+    if (showCloseButton) {
+      closeButtonTimeout.current = setTimeout(() => {
+        setShowCloseButton(false);
+      }, 3000);
+    }
+    
+    return () => {
+      if (closeButtonTimeout.current) {
+        clearTimeout(closeButtonTimeout.current);
+      }
+    };
+  }, [showCloseButton]);
 
   const progressPercentage = duration > 0 ? (position / duration) * 100 : 0;
 
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateY: translateY.value }],
+      opacity: opacity.value,
+    };
+  });
+
+  const handleLongPress = () => {
+    // Clear any existing timeout
+    if (closeButtonTimeout.current) {
+      clearTimeout(closeButtonTimeout.current);
+      closeButtonTimeout.current = null;
+    }
+    setShowCloseButton(true);
+  };
+
+  const handleClose = () => {
+    // Clear timeout when closing
+    if (closeButtonTimeout.current) {
+      clearTimeout(closeButtonTimeout.current);
+      closeButtonTimeout.current = null;
+    }
+    setShowCloseButton(false);
+    // Fade out with slight downward motion
+    translateY.value = withTiming(30, { duration: 250 });
+    opacity.value = withTiming(0, { duration: 250 }, () => {
+      if (onClose) {
+        runOnJS(onClose)();
+      }
+    });
+  };
+
+  const handlePress = () => {
+    if (showCloseButton) {
+      // Clear timeout when manually hiding
+      if (closeButtonTimeout.current) {
+        clearTimeout(closeButtonTimeout.current);
+        closeButtonTimeout.current = null;
+      }
+      setShowCloseButton(false);
+    } else if (onPress) {
+      onPress();
+    }
+  };
+
+  const handleControlPress = (action) => {
+    // Don't trigger close button state when using controls
+    if (action && typeof action === 'function') {
+      action();
+    }
+  };
+
+  // Don't render if no song
+  if (!song) {
+    return null;
+  }
+
   return (
-    <TouchableOpacity 
-      style={styles.glassPill} 
-      onPress={onPress}
-      activeOpacity={0.8}
-    >
-      <BlurView intensity={25} style={styles.blurContainer}>
-        {/* Song artwork */}
-        <Image 
-          source={{ uri: song.coverArt }} 
-          style={styles.artwork}
-        />
-        
-        {/* Song info */}
-        <View style={styles.songInfo}>
-          <Text style={styles.title} numberOfLines={1}>
-            {song.title || song.name}
-          </Text>
-          <Text style={styles.artist} numberOfLines={1}>
-            {song.artist}
-          </Text>
-        </View>
-        
-        {/* Controls */}
+    <View style={styles.playerContainer}>
+      <Animated.View style={[styles.glassPill, animatedStyle]}>
         <TouchableOpacity 
-          style={styles.playBtn}
-          onPress={onTogglePlay}
+          style={styles.touchableContainer}
+          onPress={handlePress}
+          onLongPress={handleLongPress}
+          delayLongPress={400}
+          activeOpacity={0.8}
+          pointerEvents="auto"
         >
-          <FontAwesome 
-            name={isPlaying ? "pause" : "play"} 
-            size={16} 
-            color={palette.text}
-            style={!isPlaying ? { marginLeft: 1 } : null}
-          />
+          <BlurView intensity={25} style={styles.blurContainer} pointerEvents="box-none">
+            {/* Song artwork */}
+            <View style={styles.artworkContainer}>
+              <Image 
+                source={{ uri: song.coverArt }} 
+                style={styles.artwork}
+              />
+            </View>
+            
+            {/* Song info */}
+            <View style={styles.songInfo}>
+              <Text style={styles.title} numberOfLines={1}>
+                {song.title || song.name}
+              </Text>
+              <Text style={styles.artist} numberOfLines={1}>
+                {song.artist}
+              </Text>
+            </View>
+            
+            {/* Controls */}
+            <TouchableOpacity 
+              style={[styles.playBtn, isNavigating && styles.disabledButton]}
+              onPress={() => handleControlPress(onTogglePlay)}
+              pointerEvents="auto"
+              activeOpacity={0.7}
+              disabled={isNavigating}
+            >
+              <FontAwesome 
+                name={isNavigating ? "spinner" : (isPlaying ? "pause" : "play")} 
+                size={16} 
+                color={isNavigating ? palette.quaternary : palette.text}
+                style={!isPlaying && !isNavigating ? { marginLeft: 1 } : null}
+              />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.nextBtn, isNavigating && styles.disabledButton]}
+              onPress={() => handleControlPress(onNext)}
+              pointerEvents="auto"
+              activeOpacity={0.7}
+              disabled={isNavigating}
+            >
+              <FontAwesome 
+                name="step-forward" 
+                size={14} 
+                color={isNavigating ? palette.quaternary : palette.text} 
+              />
+            </TouchableOpacity>
+            
+            {/* Progress bar */}
+            <View style={styles.progressBar} pointerEvents="none">
+              <View 
+                style={[styles.progress, { width: `${progressPercentage}%` }]} 
+              />
+            </View>
+          </BlurView>
         </TouchableOpacity>
-        
+      </Animated.View>
+      
+      {/* Close button - outside of glassPill to avoid overflow:hidden clipping */}
+      {showCloseButton && (
         <TouchableOpacity 
-          style={styles.nextBtn}
-          onPress={onNext}
+          style={styles.closeButton}
+          onPress={handleClose}
+          pointerEvents="auto"
+          activeOpacity={0.8}
         >
-          <FontAwesome 
-            name="step-forward" 
-            size={14} 
-            color={palette.text} 
-          />
+          <View style={styles.closeButtonCircle}>
+            <FontAwesome 
+              name="times" 
+              size={12} 
+              color="white" 
+            />
+          </View>
         </TouchableOpacity>
-        
-        {/* Progress bar */}
-        <View style={styles.progressBar}>
-          <View 
-            style={[styles.progress, { width: `${progressPercentage}%` }]} 
-          />
-        </View>
-      </BlurView>
-    </TouchableOpacity>
+      )}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  glassPill: {
+  playerContainer: {
     position: 'absolute',
-    bottom: 120, // Position above nav bar
+    bottom: 90, // Position above nav bar with more clearance
     left: 10,
     right: 10,
     height: 70,
+    zIndex: 50, // Lower than nav bar's z-index
+    marginBottom: 30,
+  },
+  glassPill: {
+    width: '100%',
+    height: '100%',
     borderRadius: 18,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
@@ -89,8 +219,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
-    elevation: 5,
+    elevation: 5, // Lower than nav bar to prevent interference
     overflow: 'hidden',
+  },
+  touchableContainer: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
   },
   blurContainer: {
     flex: 1,
@@ -99,11 +234,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     backgroundColor: 'rgba(37, 56, 64, 0.7)', // Lighter tint for blur
   },
+  artworkContainer: {
+    marginRight: 12,
+  },
   artwork: {
     width: 50,
     height: 50,
     borderRadius: 8,
-    marginRight: 12,
   },
   songInfo: {
     flex: 1,
@@ -132,6 +269,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  disabledButton: {
+    opacity: 0.5,
+  },
   progressBar: {
     position: 'absolute',
     bottom: 0,
@@ -148,6 +288,21 @@ const styles = StyleSheet.create({
     backgroundColor: palette.text,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: -8,
+    left: -8,
+    zIndex: 100, // Higher than the player
+    pointerEvents: 'auto',
+  },
+  closeButtonCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: palette.quaternary,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

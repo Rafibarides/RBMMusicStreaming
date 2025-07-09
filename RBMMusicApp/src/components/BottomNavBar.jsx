@@ -1,75 +1,69 @@
-import React from 'react';
+import React, { useCallback, memo } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withSpring, 
-  interpolate 
-} from 'react-native-reanimated';
 import { palette } from '../utils/Colors';
 
-const BottomNavBar = ({ activeTab, onTabPress }) => {
+const BottomNavBar = memo(({ activeTab, onTabPress }) => {
   const tabs = [
     { name: 'Dashboard', icon: 'home' },
     { name: 'Search', icon: 'search' },
     { name: 'Playlists', icon: 'music' },
   ];
 
-  const TabButton = ({ tab, isActive, onPress }) => {
-    const scale = useSharedValue(1);
-    const opacity = useSharedValue(isActive ? 1 : 0.6);
+  console.log('BottomNavBar: Rendering with activeTab:', activeTab);
 
-    const animatedIconStyle = useAnimatedStyle(() => {
-      return {
-        transform: [{ scale: scale.value }],
-        opacity: opacity.value,
-      };
-    });
+  const handleTabPress = useCallback((tabName) => {
+    console.log('BottomNavBar: Tab button pressed:', tabName);
+    console.log('BottomNavBar: onTabPress function available:', typeof onTabPress);
+    
+    if (onTabPress && typeof onTabPress === 'function') {
+      console.log('BottomNavBar: Calling onTabPress with:', tabName);
+      onTabPress(tabName);
+    } else {
+      console.warn('BottomNavBar: onTabPress is not a function!', onTabPress);
+    }
+  }, [onTabPress]);
 
-    const handlePress = () => {
-      // Animation on press
-      scale.value = withSpring(0.9, { duration: 100 }, () => {
-        scale.value = withSpring(1, { duration: 100 });
-      });
-      
-      // Update opacity
-      opacity.value = withSpring(1, { duration: 200 });
-      
-      onPress(tab.name);
-    };
-
-    // Update opacity when active state changes
-    React.useEffect(() => {
-      opacity.value = withSpring(isActive ? 1 : 0.6, { duration: 200 });
-    }, [isActive]);
-
+  const TabButton = memo(({ tab, isActive }) => {
+    console.log(`BottomNavBar: Rendering TabButton for ${tab.name}, active: ${isActive}`);
+    
     return (
-      <TouchableOpacity style={styles.tabButton} onPress={handlePress}>
-        <Animated.View style={animatedIconStyle}>
-          <FontAwesome 
-            name={tab.icon} 
-            size={24} 
-            color={palette.icons} 
-          />
-        </Animated.View>
+      <TouchableOpacity 
+        style={styles.tabButton} 
+        onPress={() => {
+          console.log(`BottomNavBar: TouchableOpacity pressed for ${tab.name}`);
+          handleTabPress(tab.name);
+        }}
+        activeOpacity={0.6}
+        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+        accessible={true}
+        accessibilityLabel={`${tab.name} tab`}
+        accessibilityRole="button"
+        onPressIn={() => console.log(`BottomNavBar: Press IN for ${tab.name}`)}
+        onPressOut={() => console.log(`BottomNavBar: Press OUT for ${tab.name}`)}
+      >
+        <FontAwesome 
+          name={tab.icon} 
+          size={24} 
+          color={palette.icons}
+          style={{ opacity: isActive ? 1 : 0.6 }}
+        />
       </TouchableOpacity>
     );
-  };
+  });
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} pointerEvents="box-none">
       {tabs.map((tab) => (
         <TabButton
           key={tab.name}
           tab={tab}
           isActive={activeTab === tab.name}
-          onPress={onTabPress}
         />
       ))}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -80,12 +74,19 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: palette.secondary,
+    zIndex: 100,
+    elevation: 10,
+    position: 'relative', // Ensure proper positioning
   },
   tabButton: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    minHeight: 50,
+    paddingVertical: 10,
   },
 });
+
+BottomNavBar.displayName = 'BottomNavBar';
 
 export default BottomNavBar;
