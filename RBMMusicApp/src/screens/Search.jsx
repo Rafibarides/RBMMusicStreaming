@@ -15,13 +15,13 @@ import {
 import { Video } from 'expo-av';
 import { FontAwesome } from '@expo/vector-icons';
 import { palette } from '../utils/Colors';
+import { useMusicData } from '../contexts/MusicDataContext';
 
 // Import JSON data
 import artistsData from '../json/artists.json';
 import songsData from '../json/songIndexFlat.json';
 import eventsData from '../json/eventIndexFlat.json';
 import videosData from '../json/videoIndexFlat.json';
-import forYouPlaylist from '../json/forYouPlaylist.json';
 
 // Import pages
 import ArtistPage from '../pages/ArtistPage';
@@ -37,16 +37,28 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
     songListData
   } = searchState;
 
+  const { forYouPlaylist, forYouPlaylistLoading } = useMusicData();
+
   // Helper function to get cover art for a song
   const getSongCoverArt = (song) => {
+    if (!song) return null;
+    
+    // If song already has coverArt (for backward compatibility), use it
+    if (song.coverArt) {
+      return song.coverArt;
+    }
+
     // Find the artist
     const artist = artistsData.find(a => a.id === song.artistId);
-    if (!artist) return null;
+    if (!artist) {
+      console.log(`Artist not found for song: ${song.title}, artistId: ${song.artistId}`);
+      return null;
+    }
 
     // For album tracks, get cover art from album
     if (song.type === 'album' && song.albumId && artist.albums) {
       const album = artist.albums.find(a => a.id === song.albumId);
-      if (album) {
+      if (album && album.coverArt) {
         return album.coverArt;
       }
     }
@@ -54,11 +66,22 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
     // For singles, get cover art from single
     if (song.type === 'single' && artist.singles) {
       const single = artist.singles.find(s => s.id === song.id);
-      if (single) {
+      if (single && single.coverArt) {
         return single.coverArt;
       }
     }
 
+    // Fallback: if we can't find specific cover art, try to use any available album art from the artist
+    if (artist.albums && artist.albums.length > 0 && artist.albums[0].coverArt) {
+      return artist.albums[0].coverArt;
+    }
+
+    // Final fallback: use artist image if available
+    if (artist.image) {
+      return artist.image;
+    }
+
+    console.log(`No cover art found for song: ${song.title}`);
     return null;
   };
 
@@ -901,41 +924,46 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
             {/* Recommended Songs */}
             <View style={styles.recommendedContainer}>
               <Text style={styles.recommendedTitle}>Recommended for You</Text>
-              <FlatList
-                data={forYouPlaylist}
-                renderItem={({ item, index }) => (
-                  <TouchableOpacity 
-                    style={styles.recommendedSongItem}
-                    onPress={() => {
-                      if (playSong) {
-                        playSong(item, forYouPlaylist, index);
-                      }
-                    }}
-                  >
-                    <Image 
-                      source={{ uri: getSongCoverArt(item) }} 
-                      style={styles.recommendedSongCover}
-                    />
-                    <View style={styles.recommendedSongInfo}>
-                      <Text style={styles.recommendedSongTitle} numberOfLines={1}>
-                        {item.title}
-                      </Text>
-                      <Text style={styles.recommendedSongArtist} numberOfLines={1}>
-                        {item.artist}
-                      </Text>
-                      {item.album && (
-                        <Text style={styles.recommendedSongAlbum} numberOfLines={1}>
-                          {item.album}
+              {forYouPlaylistLoading ? (
+                <View style={styles.loadingContainer}>
+                  <Text style={styles.loadingText}>Loading recommendations...</Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={forYouPlaylist}
+                  renderItem={({ item, index }) => (
+                    <TouchableOpacity 
+                      style={styles.recommendedSongItem}
+                      onPress={() => {
+                        if (playSong) {
+                          playSong(item, forYouPlaylist, index);
+                        }
+                      }}
+                    >
+                      <Image 
+                        source={{ uri: getSongCoverArt(item) }} 
+                        style={styles.recommendedSongCover}
+                      />
+                      <View style={styles.recommendedSongInfo}>
+                        <Text style={styles.recommendedSongTitle} numberOfLines={1}>
+                          {item.title}
                         </Text>
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                )}
-                keyExtractor={(item) => item.id.toString()}
-                scrollEnabled={false}
-                keyboardShouldPersistTaps="always"
-                ItemSeparatorComponent={() => <View style={styles.recommendedSeparator} />}
-              />
+                        <Text style={styles.recommendedSongArtist} numberOfLines={1}>
+                          {item.artist}
+                        </Text>
+                        {item.album && (
+                          <Text style={styles.recommendedSongAlbum} numberOfLines={1}>
+                            {item.album}
+                          </Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                  keyExtractor={(item) => item.id.toString()}
+                  showsVerticalScrollIndicator={false}
+                  scrollEnabled={false}
+                />
+              )}
             </View>
           </>
         )}
@@ -1633,6 +1661,14 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: palette.secondary,
     marginLeft: 75,
+  },
+  loadingContainer: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: palette.quaternary,
   },
 });
 

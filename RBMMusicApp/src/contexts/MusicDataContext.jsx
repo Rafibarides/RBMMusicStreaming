@@ -15,11 +15,14 @@ export const MusicDataProvider = ({ children }) => {
   const [likedSongs, setLikedSongs] = useState([]);
   const [playlists, setPlaylists] = useState([]);
   const [recentPlays, setRecentPlays] = useState([]);
+  const [forYouPlaylist, setForYouPlaylist] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [forYouPlaylistLoading, setForYouPlaylistLoading] = useState(true);
 
   // Load data on app start
   useEffect(() => {
     loadAllData();
+    loadForYouPlaylist();
   }, []);
 
   const loadAllData = async () => {
@@ -38,6 +41,32 @@ export const MusicDataProvider = ({ children }) => {
       console.error('Error loading data:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadForYouPlaylist = async () => {
+    setForYouPlaylistLoading(true);
+    try {
+      const response = await fetch('https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/jsonMaster/forYouPlaylist.json');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setForYouPlaylist(data);
+      console.log('Successfully loaded forYouPlaylist from remote URL');
+    } catch (error) {
+      console.error('Error loading forYouPlaylist from remote URL:', error);
+      // Fallback to local data if remote fails
+      try {
+        const localData = require('../json/forYouPlaylist.json');
+        setForYouPlaylist(localData);
+        console.log('Fallback: loaded forYouPlaylist from local file');
+      } catch (localError) {
+        console.error('Error loading local forYouPlaylist:', localError);
+        setForYouPlaylist([]);
+      }
+    } finally {
+      setForYouPlaylistLoading(false);
     }
   };
 
@@ -189,12 +218,18 @@ export const MusicDataProvider = ({ children }) => {
     await loadAllData();
   };
 
+  const refreshForYouPlaylist = async () => {
+    await loadForYouPlaylist();
+  };
+
   const value = {
     // State
     likedSongs,
     playlists,
     recentPlays,
+    forYouPlaylist,
     isLoading,
+    forYouPlaylistLoading,
     
     // Liked Songs
     toggleLikeSong,
@@ -214,6 +249,7 @@ export const MusicDataProvider = ({ children }) => {
     // Utilities
     clearAllData,
     refreshData,
+    refreshForYouPlaylist,
   };
 
   return (

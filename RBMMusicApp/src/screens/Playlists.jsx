@@ -12,7 +12,53 @@ import {
 import { FontAwesome } from '@expo/vector-icons';
 import { palette } from '../utils/Colors';
 import { useMusicData } from '../contexts/MusicDataContext';
-import forYouPlaylist from '../json/forYouPlaylist.json';
+import artistsData from '../json/artists.json';
+
+// Helper function to get cover art for a song
+const getSongCoverArt = (song) => {
+  if (!song) return null;
+  
+  // If song already has coverArt (for backward compatibility), use it
+  if (song.coverArt) {
+    return song.coverArt;
+  }
+
+  // Find the artist
+  const artist = artistsData.find(a => a.id === song.artistId);
+  if (!artist) {
+    console.log(`Artist not found for song: ${song.title}, artistId: ${song.artistId}`);
+    return null;
+  }
+
+  // For album tracks, get cover art from album
+  if (song.type === 'album' && song.albumId && artist.albums) {
+    const album = artist.albums.find(a => a.id === song.albumId);
+    if (album && album.coverArt) {
+      return album.coverArt;
+    }
+  }
+
+  // For singles, get cover art from single
+  if (song.type === 'single' && artist.singles) {
+    const single = artist.singles.find(s => s.id === song.id);
+    if (single && single.coverArt) {
+      return single.coverArt;
+    }
+  }
+
+  // Fallback: if we can't find specific cover art, try to use any available album art from the artist
+  if (artist.albums && artist.albums.length > 0 && artist.albums[0].coverArt) {
+    return artist.albums[0].coverArt;
+  }
+
+  // Final fallback: use artist image if available
+  if (artist.image) {
+    return artist.image;
+  }
+
+  console.log(`No cover art found for song: ${song.title}`);
+  return null;
+};
 
 // Collage Artwork Component
 const CollageArtwork = ({ songs, size = 60 }) => {
@@ -25,11 +71,11 @@ const CollageArtwork = ({ songs, size = 60 }) => {
       {/* Top row */}
       <View style={styles.collageRow}>
         <Image 
-          source={{ uri: collageImages[0]?.coverArt }} 
+          source={{ uri: getSongCoverArt(collageImages[0]) }} 
           style={[styles.collageImage, { width: imageSize, height: imageSize }]}
         />
         <Image 
-          source={{ uri: collageImages[1]?.coverArt }} 
+          source={{ uri: getSongCoverArt(collageImages[1]) }} 
           style={[styles.collageImage, { width: imageSize, height: imageSize }]}
         />
       </View>
@@ -37,11 +83,11 @@ const CollageArtwork = ({ songs, size = 60 }) => {
       {/* Bottom row */}
       <View style={styles.collageRow}>
         <Image 
-          source={{ uri: collageImages[2]?.coverArt }} 
+          source={{ uri: getSongCoverArt(collageImages[2]) }} 
           style={[styles.collageImage, { width: imageSize, height: imageSize }]}
         />
         <Image 
-          source={{ uri: collageImages[3]?.coverArt }} 
+          source={{ uri: getSongCoverArt(collageImages[3]) }} 
           style={[styles.collageImage, { width: imageSize, height: imageSize }]}
         />
       </View>
@@ -59,7 +105,7 @@ const CollageArtwork = ({ songs, size = 60 }) => {
 };
 
 const Playlists = ({ playSong, initialPlaylistId, onClearInitialPlaylist }) => {
-  const { playlists, likedSongs, deletePlaylist, toggleLikeSong, isLoading } = useMusicData();
+  const { playlists, likedSongs, forYouPlaylist, forYouPlaylistLoading, deletePlaylist, toggleLikeSong, isLoading } = useMusicData();
   const [selectedPlaylist, setSelectedPlaylist] = useState(null);
 
   // Create liked songs playlist
@@ -67,7 +113,7 @@ const Playlists = ({ playSong, initialPlaylistId, onClearInitialPlaylist }) => {
     id: 'liked-songs',
     name: 'Liked Songs',
     songs: likedSongs,
-    coverArt: likedSongs.length > 0 ? likedSongs[0].coverArt : null,
+    coverArt: likedSongs.length > 0 ? getSongCoverArt(likedSongs[0]) : null,
     createdAt: new Date().toISOString(),
     isLikedSongs: true
   };
@@ -86,8 +132,10 @@ const Playlists = ({ playSong, initialPlaylistId, onClearInitialPlaylist }) => {
   // Combine built-in playlists with user playlists
   let allPlaylists = [...playlists];
   
-  // Add "Picked for you" first
-  allPlaylists.unshift(pickedForYouPlaylist);
+  // Add "Picked for you" first (only if data is loaded and not empty)
+  if (!forYouPlaylistLoading && forYouPlaylist.length > 0) {
+    allPlaylists.unshift(pickedForYouPlaylist);
+  }
   
   // Add liked songs if there are any
   if (likedSongs.length > 0) {
@@ -246,7 +294,7 @@ const Playlists = ({ playSong, initialPlaylistId, onClearInitialPlaylist }) => {
         }}
       >
         <Image 
-          source={{ uri: item.coverArt }} 
+          source={{ uri: getSongCoverArt(item) }} 
           style={styles.songCover}
         />
         <View style={styles.songInfo}>
@@ -274,7 +322,7 @@ const Playlists = ({ playSong, initialPlaylistId, onClearInitialPlaylist }) => {
     );
   };
 
-  if (isLoading) {
+  if (isLoading || forYouPlaylistLoading) {
     return (
       <View style={styles.loadingContainer}>
         <Text style={styles.loadingText}>Loading...</Text>

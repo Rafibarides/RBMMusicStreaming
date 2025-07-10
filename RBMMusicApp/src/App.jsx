@@ -55,6 +55,8 @@ const AppContent = () => {
     isRepeating: false,
     isShuffled: false,
     shuffledQueue: [],
+    shuffleIndex: 0, // Track position in shuffled queue
+    shufflePlayedSongs: [], // Track songs already played in shuffle
     playHistory: [], // Track recently played songs to avoid repeats
     isNavigating: false // Prevent multiple concurrent next/previous calls
   });
@@ -62,6 +64,20 @@ const AppContent = () => {
   // Audio refs and intervals
   const sound = useRef(null);
   const progressInterval = useRef(null);
+  
+  // Add ref to track repeat state for callbacks
+  const isRepeatingRef = useRef(false);
+  
+  // Add robust navigation locking with refs for immediate protection
+  const isNavigatingRef = useRef(false);
+  const navigationLock = useRef(false);
+  
+  // Add loading lock to prevent multiple simultaneous audio loads
+  const isLoadingAudioRef = useRef(false);
+  
+  // Add loading token system to prevent race conditions
+  const currentLoadingToken = useRef(0);
+  const activeSongId = useRef(null);
   
   // Stable refs for callbacks
   const searchStateRef = useRef(searchState);
@@ -71,6 +87,16 @@ const AppContent = () => {
   useEffect(() => {
     searchStateRef.current = searchState;
   }, [searchState]);
+
+  // Update repeat ref when repeat state changes
+  useEffect(() => {
+    isRepeatingRef.current = audioState.isRepeating;
+  }, [audioState.isRepeating]);
+
+  // Update navigation ref when navigation state changes
+  useEffect(() => {
+    isNavigatingRef.current = audioState.isNavigating;
+  }, [audioState.isNavigating]);
 
   const updateSearchState = (newState) => {
     setSearchState(prevState => ({ ...prevState, ...newState }));
@@ -152,44 +178,93 @@ const AppContent = () => {
   }, [audioState.currentSong]);
 
   const loadAudio = async () => {
+    // Prevent multiple simultaneous audio loads
+    if (isLoadingAudioRef.current) {
+      return;
+    }
+
+    // Generate unique token for this load operation
+    const loadToken = ++currentLoadingToken.current;
+    const songToLoad = audioState.currentSong;
+    
+    if (!songToLoad) {
+      return;
+    }
+    
+    isLoadingAudioRef.current = true;
+    activeSongId.current = songToLoad.id;
+    
     try {
-      console.log('Loading audio for:', audioState.currentSong?.title || audioState.currentSong?.name);
-      console.log('Audio URL:', audioState.currentSong?.audio);
-      
       setAudioState(prev => ({ ...prev, isLoading: true }));
       
-      // Unload previous sound
+      // Check if we're still the current operation
+      if (loadToken !== currentLoadingToken.current) {
+        return;
+      }
+      
+      // Unload previous sound with timeout protection
       if (sound.current) {
-        console.log('Unloading previous sound');
-        await sound.current.unloadAsync();
+        try {
+          await Promise.race([
+            sound.current.unloadAsync(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+          ]);
+        } catch (error) {
+          console.error('Error unloading previous sound:', error);
+        }
+        sound.current = null;
+      }
+      
+      // Check again if we're still the current operation
+      if (loadToken !== currentLoadingToken.current) {
+        return;
       }
       
       // Clear previous interval
       if (progressInterval.current) {
         clearInterval(progressInterval.current);
+        progressInterval.current = null;
+      }
+
+      // Verify song hasn't changed during async operations
+      if (audioState.currentSong?.id !== songToLoad.id) {
+        return;
       }
 
       // Load new sound with background playback optimizations
-      console.log('Creating new sound instance...');
       const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: audioState.currentSong.audio },
+        { uri: songToLoad.audio },
         { 
           shouldPlay: true, 
-          isLooping: audioState.isRepeating, // Set looping based on repeat state
+          isLooping: audioState.isRepeating,
           volume: 1.0,
           rate: 1.0,
           shouldCorrectPitch: true,
-          // Additional settings for background playback
           progressUpdateIntervalMillis: 100,
           positionMillis: 0
-        },
-        // Second parameter for background audio
-        (status) => {
-          console.log('Audio status update:', status.isLoaded, status.isPlaying);
         }
       );
       
-      console.log('Sound created successfully');
+      // CRITICAL: Final verification before completing load
+      if (loadToken !== currentLoadingToken.current) {
+        // Clean up the sound we just created
+        try {
+          await newSound.unloadAsync();
+        } catch (error) {
+          console.error('Error cleaning up cancelled sound:', error);
+        }
+        return;
+      }
+      
+      // Verify the song is still the same
+      if (audioState.currentSong?.id !== songToLoad.id) {
+        try {
+          await newSound.unloadAsync();
+        } catch (error) {
+          console.error('Error cleaning up mismatched sound:', error);
+        }
+        return;
+      }
 
       sound.current = newSound;
       setAudioState(prev => ({ 
@@ -209,8 +284,8 @@ const AppContent = () => {
             return { ...prev, duration: status.durationMillis };
           });
           
-          // Handle track completion - only advance if not repeating
-          if (status.didJustFinish && !audioState.isRepeating) {
+          // Handle track completion - only advance if not repeating (use ref to get current value)
+          if (status.didJustFinish && !isRepeatingRef.current) {
             playNext();
           }
         }
@@ -218,7 +293,7 @@ const AppContent = () => {
 
       // Start progress tracking
       progressInterval.current = setInterval(() => {
-        if (newSound) {
+        if (newSound && loadToken === currentLoadingToken.current) {
           newSound.getStatusAsync().then((status) => {
             if (status.isLoaded) {
               setAudioState(prev => {
@@ -236,6 +311,8 @@ const AppContent = () => {
       console.error('Error loading audio:', error);
       setAudioState(prev => ({ ...prev, isLoading: false }));
       Alert.alert('Error', 'Failed to load audio');
+    } finally {
+      isLoadingAudioRef.current = false;
     }
   };
 
@@ -271,115 +348,131 @@ const AppContent = () => {
   };
 
   const playNext = async () => {
-    // CRITICAL: Prevent multiple concurrent calls
-    if (audioState.isNavigating) {
-      console.log('playNext: Already navigating, ignoring click');
+    // CRITICAL: Use ref for immediate protection before any async operations
+    if (isNavigatingRef.current || navigationLock.current) {
       return;
     }
 
-    console.log('playNext: Starting navigation...');
+    // Lock immediately using ref (faster than state)
+    navigationLock.current = true;
+    isNavigatingRef.current = true;
     
-    // Lock navigation immediately
+    // IMMEDIATELY cancel any pending audio loads by incrementing token
+    currentLoadingToken.current++;
+    
+    // Also update state for UI feedback
     setAudioState(prev => ({ ...prev, isNavigating: true }));
 
     try {
-      // STOP CURRENT AUDIO COMPLETELY AND IMMEDIATELY
-      if (sound.current) {
-        console.log('playNext: Stopping current audio...');
-        try {
-          await sound.current.stopAsync();
-          await sound.current.unloadAsync();
-          sound.current = null;
-          console.log('playNext: Current audio stopped and unloaded');
-        } catch (error) {
-          console.error('Error stopping current audio:', error);
-          sound.current = null; // Force null even if error
-        }
-      }
-
-      // Clear ALL intervals and timers
+      // Clear progress interval first
       if (progressInterval.current) {
         clearInterval(progressInterval.current);
         progressInterval.current = null;
+      }
+
+      // Stop and unload current sound with timeout protection
+      if (sound.current) {
+        try {
+          await Promise.race([
+            sound.current.unloadAsync(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+          ]);
+          sound.current = null;
+        } catch (error) {
+          console.error('Error unloading sound:', error);
+          sound.current = null; // Force cleanup even on error
+        }
       }
 
       // Get next song
       const nextSong = getNextSong();
+      
       if (nextSong) {
-        console.log('playNext: Loading next song:', nextSong.song.title || nextSong.song.name);
+        // Update state with new song - this will trigger loadAudio with new token
         setAudioState(prev => ({
           ...prev,
           currentSong: nextSong.song,
           currentIndex: nextSong.index,
-          playHistory: [prev.currentSong?.id, ...prev.playHistory.slice(0, 9)], // Keep last 10 songs
-          isPlaying: false, // Reset playing state
-          position: 0, // Reset position
-          isNavigating: false // Unlock navigation
+          playHistory: [prev.currentSong?.id, ...prev.playHistory.slice(0, 9)],
+          isPlaying: false,
+          position: 0,
+          isRepeating: false // Turn off repeat when manually skipping
         }));
-      } else {
-        // Unlock navigation even if no next song
-        setAudioState(prev => ({ ...prev, isNavigating: false }));
       }
+      
     } catch (error) {
       console.error('Error in playNext:', error);
-      // Unlock navigation on error
-      setAudioState(prev => ({ ...prev, isNavigating: false }));
+    } finally {
+      // ALWAYS unlock navigation, even on error
+      setTimeout(() => {
+        navigationLock.current = false;
+        isNavigatingRef.current = false;
+        setAudioState(prev => ({ ...prev, isNavigating: false }));
+      }, 100); // Small delay to prevent immediate re-triggering
     }
   };
 
   const playPrevious = async () => {
-    // CRITICAL: Prevent multiple concurrent calls
-    if (audioState.isNavigating) {
-      console.log('playPrevious: Already navigating, ignoring click');
+    // CRITICAL: Use ref for immediate protection before any async operations
+    if (isNavigatingRef.current || navigationLock.current) {
       return;
     }
 
-    console.log('playPrevious: Starting navigation...');
+    // Lock immediately using ref (faster than state)
+    navigationLock.current = true;
+    isNavigatingRef.current = true;
     
-    // Lock navigation immediately
+    // IMMEDIATELY cancel any pending audio loads by incrementing token
+    currentLoadingToken.current++;
+    
+    // Also update state for UI feedback
     setAudioState(prev => ({ ...prev, isNavigating: true }));
 
     try {
-      // STOP CURRENT AUDIO COMPLETELY AND IMMEDIATELY
-      if (sound.current) {
-        console.log('playPrevious: Stopping current audio...');
-        try {
-          await sound.current.stopAsync();
-          await sound.current.unloadAsync();
-          sound.current = null;
-          console.log('playPrevious: Current audio stopped and unloaded');
-        } catch (error) {
-          console.error('Error stopping current audio:', error);
-          sound.current = null; // Force null even if error
-        }
-      }
-
-      // Clear ALL intervals and timers
+      // Clear progress interval first
       if (progressInterval.current) {
         clearInterval(progressInterval.current);
         progressInterval.current = null;
       }
 
+      // Stop and unload current sound with timeout protection
+      if (sound.current) {
+        try {
+          await Promise.race([
+            sound.current.unloadAsync(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+          ]);
+          sound.current = null;
+        } catch (error) {
+          console.error('Error unloading sound:', error);
+          sound.current = null; // Force cleanup even on error
+        }
+      }
+
       // Get previous song
       const prevSong = getPreviousSong();
+      
       if (prevSong) {
-        console.log('playPrevious: Loading previous song:', prevSong.song.title || prevSong.song.name);
+        // Update state with new song - this will trigger loadAudio with new token
         setAudioState(prev => ({
           ...prev,
           currentSong: prevSong.song,
           currentIndex: prevSong.index,
-          isPlaying: false, // Reset playing state
-          position: 0, // Reset position
-          isNavigating: false // Unlock navigation
+          isPlaying: false,
+          position: 0,
+          isRepeating: false // Turn off repeat when manually skipping
         }));
-      } else {
-        // Unlock navigation even if no previous song
-        setAudioState(prev => ({ ...prev, isNavigating: false }));
       }
+      
     } catch (error) {
       console.error('Error in playPrevious:', error);
-      // Unlock navigation on error
-      setAudioState(prev => ({ ...prev, isNavigating: false }));
+    } finally {
+      // ALWAYS unlock navigation, even on error
+      setTimeout(() => {
+        navigationLock.current = false;
+        isNavigatingRef.current = false;
+        setAudioState(prev => ({ ...prev, isNavigating: false }));
+      }, 100); // Small delay to prevent immediate re-triggering
     }
   };
 
@@ -392,7 +485,58 @@ const AppContent = () => {
       };
     }
 
-    // If there's a queue and we're not at the end
+    // If we're shuffling and have a shuffled queue, prioritize shuffle over regular queue
+    if (audioState.isShuffled && audioState.shuffledQueue.length > 0) {
+      const nextIndex = audioState.shuffleIndex + 1;
+      
+      // If we haven't reached the end of the shuffled queue
+      if (nextIndex < audioState.shuffledQueue.length) {
+        // Update shuffle index in state
+        setAudioState(prev => ({ 
+          ...prev, 
+          shuffleIndex: nextIndex,
+          shufflePlayedSongs: [...prev.shufflePlayedSongs, prev.currentSong?.id].filter(Boolean)
+        }));
+        
+        return {
+          song: audioState.shuffledQueue[nextIndex],
+          index: 0
+        };
+      } else {
+        // We've reached the end of the shuffle, create a new shuffled queue
+        let songsToShuffle = [];
+        
+        if (audioState.queue && audioState.queue.length > 0) {
+          // Use current queue (e.g., album songs)
+          songsToShuffle = audioState.queue;
+        } else {
+          // Fall back to all artist songs if no queue
+          const artist = artistsData.find(a => a.name === audioState.currentSong.artist);
+          if (artist) {
+            songsToShuffle = getArtistSongs(artist);
+          }
+        }
+        
+        if (songsToShuffle.length > 0) {
+          const newShuffledQueue = createSmartShuffledQueue(songsToShuffle, audioState.currentSong);
+          
+          // Update state with new queue
+          setAudioState(prev => ({ 
+            ...prev, 
+            shuffledQueue: newShuffledQueue,
+            shuffleIndex: 1, // Start at index 1 (0 is current song)
+            shufflePlayedSongs: [prev.currentSong?.id].filter(Boolean)
+          }));
+          
+          return {
+            song: newShuffledQueue[1], // Return second song (first is current)
+            index: 0
+          };
+        }
+      }
+    }
+
+    // If there's a queue and we're not at the end (only if not shuffling)
     if (audioState.queue.length > 0 && audioState.currentIndex < audioState.queue.length - 1) {
       return {
         song: audioState.queue[audioState.currentIndex + 1],
@@ -404,16 +548,10 @@ const AppContent = () => {
     const artist = artistsData.find(a => a.name === audioState.currentSong.artist);
     if (artist) {
       const artistSongs = getArtistSongs(artist);
-      let availableSongs = artistSongs;
-
-      // If shuffled, use shuffled queue
-      if (audioState.isShuffled && audioState.shuffledQueue.length > 0) {
-        availableSongs = audioState.shuffledQueue;
-      }
 
       // Filter out recently played songs to avoid repeats
       const recentlyPlayedIds = audioState.playHistory || [];
-      const nonRecentSongs = availableSongs.filter(song => 
+      const nonRecentSongs = artistSongs.filter(song => 
         !recentlyPlayedIds.includes(song.id) && song.id !== audioState.currentSong?.id
       );
 
@@ -427,18 +565,18 @@ const AppContent = () => {
       }
 
       // If all songs are recent, pick next song in artist catalog
-      const currentSongIndex = availableSongs.findIndex(s => s.id === audioState.currentSong.id);
-      if (currentSongIndex >= 0 && currentSongIndex < availableSongs.length - 1) {
+      const currentSongIndex = artistSongs.findIndex(s => s.id === audioState.currentSong.id);
+      if (currentSongIndex >= 0 && currentSongIndex < artistSongs.length - 1) {
         return {
-          song: availableSongs[currentSongIndex + 1],
+          song: artistSongs[currentSongIndex + 1],
           index: 0
         };
       }
 
       // If at end of artist songs, start from beginning
-      if (availableSongs.length > 1) {
+      if (artistSongs.length > 1) {
         return {
-          song: availableSongs[0],
+          song: artistSongs[0],
           index: 0
         };
       }
@@ -453,8 +591,6 @@ const AppContent = () => {
     if (availableSongs.length > 0) {
       const randomIndex = Math.floor(Math.random() * availableSongs.length);
       const randomSong = availableSongs[randomIndex];
-      console.log('getNextSong: Picking random song from songIndexFlat:', randomSong);
-      console.log('Random song has lyrics:', !!randomSong?.lyrics);
       return {
         song: randomSong,
         index: 0
@@ -479,30 +615,55 @@ const AppContent = () => {
       };
     }
     
+    // If we're shuffling and have a shuffled queue
+    if (audioState.isShuffled && audioState.shuffledQueue.length > 0) {
+      const prevIndex = audioState.shuffleIndex - 1;
+      
+      // If we can go back in the shuffled queue
+      if (prevIndex >= 0) {
+        // Update shuffle index in state
+        setAudioState(prev => ({ 
+          ...prev, 
+          shuffleIndex: prevIndex
+        }));
+        
+        return {
+          song: audioState.shuffledQueue[prevIndex],
+          index: 0
+        };
+      } else {
+        // If at the beginning, go to the last song in the shuffled queue
+        const lastIndex = audioState.shuffledQueue.length - 1;
+        setAudioState(prev => ({ 
+          ...prev, 
+          shuffleIndex: lastIndex
+        }));
+        
+        return {
+          song: audioState.shuffledQueue[lastIndex],
+          index: 0
+        };
+      }
+    }
+    
     // If we're at the beginning of queue or no queue, get previous from artist's discography
     const artist = artistsData.find(a => a.name === audioState.currentSong.artist);
     if (artist) {
       const artistSongs = getArtistSongs(artist);
-      let availableSongs = artistSongs;
 
-      // If shuffled, use shuffled queue
-      if (audioState.isShuffled && audioState.shuffledQueue.length > 0) {
-        availableSongs = audioState.shuffledQueue;
-      }
-
-      const currentSongIndex = availableSongs.findIndex(s => s.id === audioState.currentSong.id);
+      const currentSongIndex = artistSongs.findIndex(s => s.id === audioState.currentSong.id);
       
       if (currentSongIndex > 0) {
         return {
-          song: availableSongs[currentSongIndex - 1],
+          song: artistSongs[currentSongIndex - 1],
           index: 0
         };
       }
 
       // If at the beginning, go to the last song in the catalog
-      if (availableSongs.length > 1) {
+      if (artistSongs.length > 1) {
         return {
-          song: availableSongs[availableSongs.length - 1],
+          song: artistSongs[artistSongs.length - 1],
           index: 0
         };
       }
@@ -684,24 +845,60 @@ const AppContent = () => {
     setAudioState(prev => {
       const newShuffled = !prev.isShuffled;
       let newShuffledQueue = [];
+      let newShuffleIndex = 0;
+      let newShufflePlayedSongs = [];
 
       if (newShuffled && prev.currentSong) {
-        // Create shuffled queue from current artist
-        const artist = artistsData.find(a => a.name === prev.currentSong.artist);
-        if (artist) {
-          const artistSongs = getArtistSongs(artist);
-          // Shuffle the songs but keep current song out for now
-          const otherSongs = artistSongs.filter(s => s.id !== prev.currentSong.id);
-          newShuffledQueue = [prev.currentSong, ...shuffleArray(otherSongs)];
+        // Prioritize current queue (like album songs) over all artist songs
+        let songsToShuffle = [];
+        
+        if (prev.queue && prev.queue.length > 0) {
+          // Use current queue (e.g., album songs)
+          songsToShuffle = prev.queue;
+        } else {
+          // Fall back to all artist songs if no queue
+          const artist = artistsData.find(a => a.name === prev.currentSong.artist);
+          if (artist) {
+            songsToShuffle = getArtistSongs(artist);
+          }
+        }
+        
+        if (songsToShuffle.length > 0) {
+          newShuffledQueue = createSmartShuffledQueue(songsToShuffle, prev.currentSong);
+          newShuffleIndex = 0; // Current song is at index 0
+          newShufflePlayedSongs = []; // Reset played songs
         }
       }
 
       return {
         ...prev,
         isShuffled: newShuffled,
-        shuffledQueue: newShuffledQueue
+        shuffledQueue: newShuffledQueue,
+        shuffleIndex: newShuffleIndex,
+        shufflePlayedSongs: newShufflePlayedSongs
       };
     });
+  };
+
+  // Enhanced shuffle function that avoids back-to-back repeats
+  const createSmartShuffledQueue = (songs, currentSong) => {
+    if (songs.length <= 1) return songs;
+    
+    // Start with current song at the beginning
+    const otherSongs = songs.filter(s => s.id !== currentSong?.id);
+    
+    if (otherSongs.length === 0) return [currentSong];
+    
+    // Shuffle the other songs
+    const shuffled = shuffleArray(otherSongs);
+    
+    // Ensure the first song after current is not the same (extra safety)
+    if (shuffled.length > 1 && shuffled[0].id === currentSong?.id) {
+      // Swap first and second songs
+      [shuffled[0], shuffled[1]] = [shuffled[1], shuffled[0]];
+    }
+    
+    return [currentSong, ...shuffled];
   };
 
   // Helper function to shuffle array

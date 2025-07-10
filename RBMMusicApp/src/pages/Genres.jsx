@@ -22,14 +22,24 @@ const Genres = ({ onBack, playSong }) => {
 
   // Helper function to get cover art for a song
   const getSongCoverArt = (song) => {
+    if (!song) return null;
+    
+    // If song already has coverArt (for backward compatibility), use it
+    if (song.coverArt) {
+      return song.coverArt;
+    }
+
     // Find the artist
     const artist = artistsData.find(a => a.id === song.artistId);
-    if (!artist) return null;
+    if (!artist) {
+      console.log(`Artist not found for song: ${song.title}, artistId: ${song.artistId}`);
+      return null;
+    }
 
     // For album tracks, get cover art from album
     if (song.type === 'album' && song.albumId && artist.albums) {
       const album = artist.albums.find(a => a.id === song.albumId);
-      if (album) {
+      if (album && album.coverArt) {
         return album.coverArt;
       }
     }
@@ -37,11 +47,22 @@ const Genres = ({ onBack, playSong }) => {
     // For singles, get cover art from single
     if (song.type === 'single' && artist.singles) {
       const single = artist.singles.find(s => s.id === song.id);
-      if (single) {
+      if (single && single.coverArt) {
         return single.coverArt;
       }
     }
 
+    // Fallback: if we can't find specific cover art, try to use any available album art from the artist
+    if (artist.albums && artist.albums.length > 0 && artist.albums[0].coverArt) {
+      return artist.albums[0].coverArt;
+    }
+
+    // Final fallback: use artist image if available
+    if (artist.image) {
+      return artist.image;
+    }
+
+    console.log(`No cover art found for song: ${song.title}`);
     return null;
   };
 

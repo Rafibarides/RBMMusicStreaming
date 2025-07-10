@@ -50,11 +50,21 @@
         "id": 5,
         "name": "Rafi Barides",
         "image": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/rafiBarides.png",
+        "singles": [
+            {
+                "id": 16,
+                "name": "Outer Space (ft. Shira Neshama)",
+                "coverArt": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Singles/OuterSpace/outerSpace.jpg",
+                "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Singles/OuterSpace/outerSpace.wav",
+                "releaseDate": "2024-01-04",
+                "lyrics": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Singles/OuterSpace/outerSpaceLyrics.json"
+            }
+        ],
         "albums": [
             {
                 "id": 2,
                 "name": "Rags to Rags",
-                "coverArt": "https://i.scdn.co/image/ab67616100005174cc3b1ba3abad6e95ab3d4597",
+                "coverArt": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/ragsToRags.jpg",
                 "releaseDate": "2020-01-01"
             }
         ],

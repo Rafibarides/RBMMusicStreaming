@@ -5,6 +5,7 @@
     "artist": "Joey",
     "artistId": 1,
     "type": "single",
+    "coverArt": "https://blog.pixpa.com/wp-content/uploads/2021/03/word-image-122.jpeg",
     "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
     "releaseDate": "2021-01-01",
     "genre": "Pop"
@@ -17,6 +18,7 @@
     "album": "After Dark",
     "albumId": 1,
     "type": "album",
+    "coverArt": "https://progradedigital.com/wp-content/uploads/2023/04/31-Main-Image.png",
     "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
     "releaseDate": "2021-01-01",
     "genre": "Dance"
@@ -29,6 +31,7 @@
     "album": "After Dark",
     "albumId": 1,
     "type": "album",
+    "coverArt": "https://progradedigital.com/wp-content/uploads/2023/04/31-Main-Image.png",
     "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
     "releaseDate": "2020-01-01",
     "genre": "Electronic"
@@ -41,16 +44,85 @@
     "album": "Rags to Rags",
     "albumId": 2,
     "type": "album",
-    "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/RemindMe.mp3",
+    "coverArt": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/ragsToRags.jpg",
+    "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/REMIND%20ME%20V2.wav",
     "releaseDate": "2020-01-01",
     "lyrics": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/RemindMe.json",
     "credits": [
       {
-        "name": "Rafi Barides",
-        "role": "Producer"
+        "name": "Tzvi Levine",
+        "role": "Mastering"
       },
       {
-        "name": "Nicky V",
+        "name": "Nicky V Hines",
+        "role": "Guitar"
+      }
+    ],
+    "genre": "Singer-Songwriter"
+  },
+  {
+    "id": 13,
+    "title": "Lightheaded",
+    "artist": "Rafi Barides",
+    "artistId": 5,
+    "album": "Rags to Rags",
+    "albumId": 2,
+    "type": "album",
+    "coverArt": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/ragsToRags.jpg",
+    "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/LIGHTHEADED%20V2.wav",
+    "releaseDate": "2020-01-01",
+    "lyrics": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/Lightheaded.json",
+    "credits": [
+      {
+        "name": "Tzvi Levine",
+        "role": "Mastering"
+      }
+    ],
+    "genre": "Singer-Songwriter"
+  },
+  {
+    "id": 14,
+    "title": "Feels like Home",
+    "artist": "Rafi Barides",
+    "artistId": 5,
+    "album": "Rags to Rags",
+    "albumId": 2,
+    "type": "album",
+    "coverArt": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/ragsToRags.jpg",
+    "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/FEELS%20LIKE%20HOME%20V2.wav",
+    "releaseDate": "2020-01-01",
+    "lyrics": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/FeelsLikeHome.json",
+    "credits": [
+      {
+        "name": "Tzvi Levine",
+        "role": "Mastering"
+      },
+      {
+        "name": "Nicky V Hines",
+        "role": "Guitar"
+      }
+    ],
+    "genre": "Singer-Songwriter"
+  },
+  {
+    "id": 15,
+    "title": "Take My Breath (ft. Ericah)",
+    "artist": "Rafi Barides",
+    "artistId": 5,
+    "album": "Rags to Rags",
+    "albumId": 2,
+    "type": "album",
+    "coverArt": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/ragsToRags.jpg",
+    "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/TAKE%20MY%20BREATH%20V2.wav",
+    "releaseDate": "2020-01-01",
+    "lyrics": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/TakeMyBreath.json",
+    "credits": [
+      {
+        "name": "Tzvi Levine",
+        "role": "Mastering"
+      },
+      {
+        "name": "Nicky V Hines",
         "role": "Guitar"
       }
     ],
@@ -64,6 +136,7 @@
     "album": "The Only Living Boy In Brooklyn",
     "albumId": 3,
     "type": "album",
+    "coverArt": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/theOnlyLivingBoyInBrooklyn.jpg",
     "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/01%20Positive%20Affirmations.mp3",
     "releaseDate": "2024-12-08",
     "credits": [
@@ -81,6 +154,7 @@
     "album": "The Only Living Boy In Brooklyn",
     "albumId": 3,
     "type": "album",
+    "coverArt": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/theOnlyLivingBoyInBrooklyn.jpg",
     "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/02%20Try%20&%20Fail.mp3",
     "releaseDate": "2024-12-08",
     "credits": [
@@ -98,6 +172,7 @@
     "album": "The Only Living Boy In Brooklyn",
     "albumId": 3,
     "type": "album",
+    "coverArt": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/theOnlyLivingBoyInBrooklyn.jpg",
     "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/03%20Life%20Only%20Started.mp3",
     "releaseDate": "2024-12-08",
     "credits": [
@@ -115,6 +190,7 @@
     "album": "The Only Living Boy In Brooklyn",
     "albumId": 3,
     "type": "album",
+    "coverArt": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/theOnlyLivingBoyInBrooklyn.jpg",
     "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/04%20You%20Wont%20See%20Me%20Again.mp3",
     "releaseDate": "2024-12-08",
     "credits": [
@@ -133,6 +209,7 @@
     "album": "The Only Living Boy In Brooklyn",
     "albumId": 3,
     "type": "album",
+    "coverArt": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/theOnlyLivingBoyInBrooklyn.jpg",
     "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/05%20Young%20Boy.mp3",
     "releaseDate": "2024-12-08",
     "credits": [
@@ -159,6 +236,7 @@
     "album": "The Only Living Boy In Brooklyn",
     "albumId": 3,
     "type": "album",
+    "coverArt": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/theOnlyLivingBoyInBrooklyn.jpg",
     "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/06%20GenZ.mp3",
     "releaseDate": "2024-12-08",
     "credits": [
@@ -176,6 +254,7 @@
     "album": "The Only Living Boy In Brooklyn",
     "albumId": 3,
     "type": "album",
+    "coverArt": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/theOnlyLivingBoyInBrooklyn.jpg",
     "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/07%20Good%20Times.mp3",
     "releaseDate": "2024-12-08",
     "credits": [
@@ -193,6 +272,7 @@
     "album": "The Only Living Boy In Brooklyn",
     "albumId": 3,
     "type": "album",
+    "coverArt": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/theOnlyLivingBoyInBrooklyn.jpg",
     "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/08%20Try%20&%20Fail%20LIVE.mp3",
     "releaseDate": "2024-12-08",
     "credits": [
@@ -208,6 +288,24 @@
       { "name": "Gavi Kutliroff", "role": "BGV" },
       { "name": "Yitzchok Friedman", "role": "BGV" },
       { "name": "Rafi Barides", "role": "BGV" }
+    ],
+    "genre": "Singer-Songwriter"
+  },
+  {
+    "id": 16,
+    "title": "Outer Space (ft. Shira Neshama)",
+    "artist": "Rafi Barides",
+    "artistId": 5,
+    "type": "single",
+    "coverArt": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Singles/OuterSpace/outerSpace.jpg",
+    "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Singles/OuterSpace/outerSpace.wav",
+    "releaseDate": "2024-01-04",
+    "lyrics": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Singles/OuterSpace/outerSpaceLyrics.json",
+    "credits": [
+      {
+        "name": "Rafi Barides",
+        "role": "Songwriter"
+      }
     ],
     "genre": "Singer-Songwriter"
   }

@@ -12,11 +12,60 @@ import {
 } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { palette } from '../utils/Colors';
-import forYouPlaylist from '../json/forYouPlaylist.json';
+import { useMusicData } from '../contexts/MusicDataContext';
+import artistsData from '../json/artists.json';
+
+// Helper function to get cover art for a song
+const getSongCoverArt = (song) => {
+  if (!song) return null;
+  
+  // If song already has coverArt (for backward compatibility), use it
+  if (song.coverArt) {
+    return song.coverArt;
+  }
+
+  // Find the artist
+  const artist = artistsData.find(a => a.id === song.artistId);
+  if (!artist) {
+    console.log(`Artist not found for song: ${song.title}, artistId: ${song.artistId}`);
+    return null;
+  }
+
+  // For album tracks, get cover art from album
+  if (song.type === 'album' && song.albumId && artist.albums) {
+    const album = artist.albums.find(a => a.id === song.albumId);
+    if (album && album.coverArt) {
+      return album.coverArt;
+    }
+  }
+
+  // For singles, get cover art from single
+  if (song.type === 'single' && artist.singles) {
+    const single = artist.singles.find(s => s.id === song.id);
+    if (single && single.coverArt) {
+      return single.coverArt;
+    }
+  }
+
+  // Fallback: if we can't find specific cover art, try to use any available album art from the artist
+  if (artist.albums && artist.albums.length > 0 && artist.albums[0].coverArt) {
+    return artist.albums[0].coverArt;
+  }
+
+  // Final fallback: use artist image if available
+  if (artist.image) {
+    return artist.image;
+  }
+
+  console.log(`No cover art found for song: ${song.title}`);
+  return null;
+};
 
 const { width: screenWidth } = Dimensions.get('window');
 
 const Popular = ({ onBack, playSong }) => {
+  const { forYouPlaylist, forYouPlaylistLoading } = useMusicData();
+  
   // Animation values
   const chartAnimation = useRef(new Animated.Value(0)).current;
   const pulseAnimation = useRef(new Animated.Value(1)).current;
@@ -27,6 +76,11 @@ const Popular = ({ onBack, playSong }) => {
     new Animated.Value(0),
     new Animated.Value(0),
   ]).current;
+
+  // Animation refs
+  const bounceAnims = useRef([]);
+  const pulseAnims = useRef([]);
+  const barHeights = useRef([]);
 
   useEffect(() => {
     // Start chart bars animation
@@ -154,7 +208,7 @@ const Popular = ({ onBack, playSong }) => {
       <View style={styles.rankContainer}>
         <Text style={styles.rankNumber}>{index + 1}</Text>
       </View>
-      <Image source={{ uri: item.coverArt }} style={styles.songCover} />
+      <Image source={{ uri: getSongCoverArt(item) }} style={styles.songCover} />
       <View style={styles.songInfo}>
         <Text style={styles.songTitle} numberOfLines={1}>
           {item.title}
@@ -171,6 +225,17 @@ const Popular = ({ onBack, playSong }) => {
 
   // Render collage artwork for playlist header
   const renderCollageArtwork = () => {
+    // Show loading or empty state if data is not ready
+    if (forYouPlaylistLoading || forYouPlaylist.length === 0) {
+      return (
+        <View style={[styles.collageContainer, { width: 60, height: 60 }]}>
+          <View style={styles.collageLoadingState}>
+            <FontAwesome name="music" size={20} color={palette.quaternary} />
+          </View>
+        </View>
+      );
+    }
+
     const imageSize = 30; // Half of 60 for smaller collage
     
     return (
@@ -178,11 +243,11 @@ const Popular = ({ onBack, playSong }) => {
         {/* Top row */}
         <View style={styles.collageRow}>
           <Image 
-            source={{ uri: forYouPlaylist[0]?.coverArt }} 
+            source={{ uri: getSongCoverArt(forYouPlaylist[0]) }} 
             style={[styles.collageImage, { width: imageSize, height: imageSize }]}
           />
           <Image 
-            source={{ uri: forYouPlaylist[1]?.coverArt }} 
+            source={{ uri: getSongCoverArt(forYouPlaylist[1]) }} 
             style={[styles.collageImage, { width: imageSize, height: imageSize }]}
           />
         </View>
@@ -190,16 +255,16 @@ const Popular = ({ onBack, playSong }) => {
         {/* Bottom row */}
         <View style={styles.collageRow}>
           <Image 
-            source={{ uri: forYouPlaylist[2]?.coverArt }} 
+            source={{ uri: getSongCoverArt(forYouPlaylist[2]) }} 
             style={[styles.collageImage, { width: imageSize, height: imageSize }]}
           />
           <Image 
-            source={{ uri: forYouPlaylist[3]?.coverArt }} 
+            source={{ uri: getSongCoverArt(forYouPlaylist[3]) }} 
             style={[styles.collageImage, { width: imageSize, height: imageSize }]}
           />
         </View>
         
-        {/* RBM Logo in bottom right */}
+        {/* Arbiem Logo in bottom right */}
         <View style={[styles.logoContainer, { width: imageSize * 0.6, height: imageSize * 0.6 }]}>
           <Image 
             source={require('../../assets/rbmLogo.png')} 
@@ -210,6 +275,27 @@ const Popular = ({ onBack, playSong }) => {
       </View>
     );
   };
+
+  // Show loading state if forYouPlaylist is still loading
+  if (forYouPlaylistLoading) {
+    return (
+      <View style={styles.container}>
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backButton} onPress={onBack}>
+              <FontAwesome name="chevron-left" size={20} color={palette.text} />
+            </TouchableOpacity>
+            <Text style={styles.title}>Popular</Text>
+          </View>
+          
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Loading...</Text>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -235,30 +321,32 @@ const Popular = ({ onBack, playSong }) => {
         </View>
 
         {/* Picked For You Playlist Section */}
-        <View style={styles.playlistSection}>
-          <View style={styles.playlistHeader}>
-            {renderCollageArtwork()}
-            <View style={styles.playlistHeaderInfo}>
-              <Text style={styles.playlistName}>Picked for you</Text>
-              <Text style={styles.playlistDescription}>
-                Curated by Rafi Barides for the RBM Music Collective
-              </Text>
-              <Text style={styles.playlistCount}>
-                {forYouPlaylist.length} song{forYouPlaylist.length !== 1 ? 's' : ''}
-              </Text>
+        {forYouPlaylist.length > 0 && (
+          <View style={styles.playlistSection}>
+            <View style={styles.playlistHeader}>
+              {renderCollageArtwork()}
+              <View style={styles.playlistHeaderInfo}>
+                <Text style={styles.playlistName}>Picked for you</Text>
+                <Text style={styles.playlistDescription}>
+                  Curated by Rafi Barides for Arbiem
+                </Text>
+                <Text style={styles.playlistCount}>
+                  {forYouPlaylist.length} song{forYouPlaylist.length !== 1 ? 's' : ''}
+                </Text>
+              </View>
             </View>
-          </View>
 
-          {/* Songs List */}
-          <FlatList
-            data={forYouPlaylist}
-            renderItem={renderSongItem}
-            keyExtractor={(item) => item.id.toString()}
-            showsVerticalScrollIndicator={false}
-            scrollEnabled={false}
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
-          />
-        </View>
+            {/* Songs List */}
+            <FlatList
+              data={forYouPlaylist}
+              renderItem={renderSongItem}
+              keyExtractor={(item) => item.id.toString()}
+              showsVerticalScrollIndicator={false}
+              scrollEnabled={false}
+              ItemSeparatorComponent={() => <View style={styles.separator} />}
+            />
+          </View>
+        )}
 
         {/* Bottom spacing */}
         <View style={{ height: 100 }} />
@@ -474,6 +562,25 @@ const styles = StyleSheet.create({
     width: '80%',
     height: '80%',
     tintColor: 'white',
+  },
+  collageLoadingState: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    borderRadius: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 50,
+  },
+  loadingText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: palette.text,
   },
 });
 
