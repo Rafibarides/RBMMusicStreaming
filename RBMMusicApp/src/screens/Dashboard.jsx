@@ -16,6 +16,7 @@ import { palette } from '../utils/Colors';
 import { useMusicData } from '../contexts/MusicDataContext';
 import songIndexFlat from '../json/songIndexFlat.json';
 import artists from '../json/artists.json';
+import Popular from '../pages/Popular';
 
 const Dashboard = ({ playSong, onNavigateToPlaylists, onNavigateToArtist }) => {
   const { likedSongs, recentPlays, isLoading } = useMusicData();
@@ -23,6 +24,7 @@ const Dashboard = ({ playSong, onNavigateToPlaylists, onNavigateToArtist }) => {
   const [showCatalog, setShowCatalog] = useState(false);
   const [showRecentlyAdded, setShowRecentlyAdded] = useState(false);
   const [showNewArtists, setShowNewArtists] = useState(false);
+  const [showPopular, setShowPopular] = useState(false);
 
   useEffect(() => {
     // Fade in animation with slight delay for polish
@@ -358,6 +360,16 @@ const Dashboard = ({ playSong, onNavigateToPlaylists, onNavigateToArtist }) => {
     return renderNewArtistsView();
   }
 
+  // Show popular view if active
+  if (showPopular) {
+    return (
+      <Popular 
+        onBack={() => setShowPopular(false)}
+        playSong={playSong}
+      />
+    );
+  }
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header */}
@@ -448,7 +460,10 @@ const Dashboard = ({ playSong, onNavigateToPlaylists, onNavigateToArtist }) => {
             <Text style={styles.quickAccessText}>Recently Added</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.quickAccessButton}>
+          <TouchableOpacity 
+            style={styles.quickAccessButton}
+            onPress={() => setShowPopular(true)}
+          >
             <Text style={styles.quickAccessText}>Popular</Text>
           </TouchableOpacity>
           

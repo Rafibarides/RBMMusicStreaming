@@ -84,51 +84,46 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
   const getAllArtistSongs = () => {
     const allSongs = [];
     
-    // Add singles
-    if (artist.singles) {
-      artist.singles.forEach(single => {
-        // Find matching song in songIndexFlat to get credits
-        const flatSong = songIndexFlat.find(s => s.id === single.id);
-        
-        allSongs.push({
-          id: single.id,
-          title: single.name,
-          name: single.name,
-          artist: artist.name,
-          coverArt: single.coverArt,
-          audio: single.audio,
-          lyrics: single.lyrics, // Include lyrics property
-          credits: single.credits || flatSong?.credits, // Use credits from song first, then fallback to flatSong
-          type: 'single'
-        });
-      });
-    }
+    // Get all songs by this artist from songIndexFlat
+    const artistSongs = songIndexFlat.filter(song => song.artistId === artist.id);
     
-    // Add album tracks
-    if (artist.albums) {
-      artist.albums.forEach(album => {
-        if (album.songs) {
-          album.songs.forEach(song => {
-            // Find matching song in songIndexFlat to get credits
-            const flatSong = songIndexFlat.find(s => s.id === song.id);
-            
-            allSongs.push({
-              id: song.id,
-              title: song.name,
-              name: song.name,
-              artist: artist.name,
-              album: album.name,
-              coverArt: album.coverArt,
-              audio: song.audio,
-              lyrics: song.lyrics, // Include lyrics property
-              credits: song.credits || flatSong?.credits, // Use credits from song first, then fallback to flatSong
-              albumId: song.albumId,
-              type: 'album'
-            });
-          });
+    artistSongs.forEach(song => {
+      // For album tracks, get the cover art from the album info in artist data
+      let coverArt = song.coverArt;
+      let albumName = song.album;
+      
+      if (song.type === 'album' && song.albumId && artist.albums) {
+        const album = artist.albums.find(a => a.id === song.albumId);
+        if (album) {
+          coverArt = album.coverArt;
+          albumName = album.name;
         }
+      }
+      
+      // For singles, get the cover art from the single info in artist data
+      if (song.type === 'single' && artist.singles) {
+        const single = artist.singles.find(s => s.id === song.id);
+        if (single) {
+          coverArt = single.coverArt;
+        }
+      }
+      
+      allSongs.push({
+        id: song.id,
+        title: song.title,
+        name: song.title,
+        artist: artist.name,
+        album: albumName,
+        coverArt: coverArt,
+        audio: song.audio,
+        lyrics: song.lyrics,
+        credits: song.credits,
+        albumId: song.albumId,
+        type: song.type,
+        releaseDate: song.releaseDate,
+        genre: song.genre
       });
-    }
+    });
     
     return allSongs;
   };
@@ -149,24 +144,22 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
 
   // Navigate to album songs
   const navigateToAlbum = (album) => {
-    const albumSongs = album.songs ? album.songs.map(song => {
-      // Find matching song in songIndexFlat to get credits
-      const flatSong = songIndexFlat.find(s => s.id === song.id);
-      
-      return {
-        id: song.id,
-        title: song.name,
-        name: song.name,
-        artist: artist.name,
-        album: album.name,
-        coverArt: album.coverArt,
-        audio: song.audio,
-        lyrics: song.lyrics, // Include lyrics property
-        credits: song.credits || flatSong?.credits, // Use credits from song first, then fallback to flatSong
-        albumId: song.albumId,
-        type: 'album'
-      };
-    }) : [];
+    // Get songs for this album from songIndexFlat
+    const albumSongs = songIndexFlat.filter(song => song.albumId === album.id).map(song => ({
+      id: song.id,
+      title: song.title,
+      name: song.title,
+      artist: artist.name,
+      album: album.name,
+      coverArt: album.coverArt,
+      audio: song.audio,
+      lyrics: song.lyrics,
+      credits: song.credits,
+      albumId: song.albumId,
+      type: 'album',
+      releaseDate: song.releaseDate,
+      genre: song.genre
+    }));
     
     const newSongListData = {
       songs: albumSongs,
@@ -211,21 +204,25 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
       } else {
         // Play the single
         if (playSong) {
-          // Find matching song in songIndexFlat to get credits
+          // Find the single in songIndexFlat
           const flatSong = songIndexFlat.find(s => s.id === data.id);
           
-          const singleData = {
-            id: data.id,
-            title: data.name,
-            name: data.name,
-            artist: artist.name,
-            coverArt: data.coverArt,
-            audio: data.audio,
-            lyrics: data.lyrics, // Include lyrics property
-            credits: data.credits || flatSong?.credits, // Use credits from song first, then fallback to flatSong
-            type: 'single'
-          };
-          playSong(singleData, [singleData], 0);
+          if (flatSong) {
+            const singleData = {
+              id: flatSong.id,
+              title: flatSong.title,
+              name: flatSong.title,
+              artist: artist.name,
+              coverArt: data.coverArt, // Use cover art from artist data
+              audio: flatSong.audio,
+              lyrics: flatSong.lyrics,
+              credits: flatSong.credits,
+              type: 'single',
+              releaseDate: flatSong.releaseDate,
+              genre: flatSong.genre
+            };
+            playSong(singleData, [singleData], 0);
+          }
         }
       }
     };
@@ -241,7 +238,7 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
           <View style={styles.latestReleaseInfo}>
             <Text style={styles.latestReleaseTitle}>{data.name}</Text>
             <Text style={styles.latestReleaseType}>
-              {isAlbum ? `Album • ${data.songs?.length || 0} songs` : 'Single'}
+              {isAlbum ? `Album • ${songIndexFlat.filter(song => song.albumId === data.id).length} songs` : 'Single'}
             </Text>
             <Text style={styles.latestReleaseArtist}>{artist.name}</Text>
           </View>
@@ -408,30 +405,43 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
   // Render single event item
   const renderEventItem = (event) => (
     <View key={event.id} style={styles.eventItem}>
-      <View style={styles.eventHeader}>
-        <Text style={styles.eventTitle}>{event.title}</Text>
-        <Text style={styles.eventDate}>{formatEventDate(event.date)}</Text>
+      {/* Date - Prominent at the top */}
+      <View style={styles.eventDateHeader}>
+        <Text style={styles.eventDate}>
+          {formatEventDate(event.date)}
+        </Text>
       </View>
       
-      <Text style={styles.eventSubtext}>{event.subtext}</Text>
-      
-      <View style={styles.eventDetails}>
-        <View style={styles.eventDetailRow}>
-          <FontAwesome name="map-marker" size={14} color={palette.quaternary} />
-          <Text style={styles.eventVenue}>{event.venue}</Text>
-        </View>
-        <View style={styles.eventDetailRow}>
-          <FontAwesome name="clock-o" size={14} color={palette.quaternary} />
-          <Text style={styles.eventShowtime}>{event.showtime}</Text>
+      <View style={styles.eventMainContent}>
+        {/* Artist Image */}
+        <Image source={{ uri: artist.image }} style={styles.eventArtistImage} />
+        
+        {/* Event Info */}
+        <View style={styles.eventInfo}>
+          <Text style={styles.eventVenue} numberOfLines={2}>
+            {event.venue}
+          </Text>
+          <Text style={styles.eventTitle} numberOfLines={2}>
+            {event.title}
+          </Text>
+          <Text style={styles.eventShowtime}>
+            {event.showtime}
+          </Text>
         </View>
       </View>
+      
+      {/* Subtext */}
+      {event.subtext && (
+        <Text style={styles.eventSubtext}>{event.subtext}</Text>
+      )}
 
+      {/* Ticket Button */}
       <TouchableOpacity 
         style={styles.ticketButton}
         onPress={() => handleTicketPress(event.ticketLink)}
       >
         <Text style={styles.ticketButtonText}>Get Tickets</Text>
-        <FontAwesome name="external-link" size={14} color={palette.text} />
+        <FontAwesome name="external-link" size={12} color={palette.text} />
       </TouchableOpacity>
     </View>
   );
@@ -468,8 +478,7 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
     return (
       <View style={styles.supportContainer}>
         <Text style={styles.supportDescription}>
-          {artistName} has made their music free to stream on RBM Music. They did this to connect 
-          directly with their fans and allow you to experience their art in the way that they intended. 
+          {artistName} has made their music free to stream on Arbiem.  
           Support them!
         </Text>
         
@@ -551,7 +560,12 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
             </View>
 
             {/* Tab Menu */}
-            <View style={styles.tabMenu}>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.tabMenu}
+              contentContainerStyle={styles.tabMenuContent}
+            >
               {['Music', 'Video', 'Events', 'Support Me'].map((tab) => (
                 <TouchableOpacity
                   key={tab}
@@ -577,7 +591,7 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
                   </Text>
                 </TouchableOpacity>
               ))}
-            </View>
+            </ScrollView>
 
             {/* Tab Content */}
             <View style={styles.tabContent}>
@@ -676,9 +690,12 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   tabMenu: {
-    flexDirection: 'row',
     paddingHorizontal: 20,
     marginBottom: 20,
+  },
+  tabMenuContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   tabButton: {
     paddingVertical: 8,
@@ -856,61 +873,67 @@ const styles = StyleSheet.create({
     marginBottom: 80,
   },
   eventItem: {
-    backgroundColor: palette.secondary,
-    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 6,
     padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    marginBottom: 12,
   },
-  eventHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
+  eventDateHeader: {
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
-  eventTitle: {
+  eventDate: {
     fontSize: 18,
     fontWeight: 'bold',
     color: palette.text,
-    flex: 1,
-    marginRight: 12,
+    textAlign: 'center',
   },
-  eventDate: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: palette.tertiary,
-  },
-  eventSubtext: {
-    fontSize: 14,
-    color: palette.quaternary,
-    marginBottom: 12,
-    fontStyle: 'italic',
-  },
-  eventDetails: {
-    marginBottom: 16,
-  },
-  eventDetailRow: {
+  eventMainContent: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  eventArtistImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 15,
+  },
+  eventInfo: {
+    flex: 1,
   },
   eventVenue: {
-    fontSize: 14,
+    fontSize: 18,
+    fontWeight: '600',
     color: palette.text,
-    marginLeft: 8,
-    flex: 1,
+    marginBottom: 4,
+    lineHeight: 22,
+  },
+  eventTitle: {
+    fontSize: 14,
+    color: palette.quaternary,
+    marginBottom: 4,
+    lineHeight: 18,
   },
   eventShowtime: {
-    fontSize: 14,
-    color: palette.text,
-    marginLeft: 8,
+    fontSize: 12,
+    color: palette.quaternary,
+  },
+  eventSubtext: {
+    fontSize: 13,
+    color: palette.quaternary,
+    fontStyle: 'italic',
+    marginBottom: 12,
+    lineHeight: 18,
   },
   ticketButton: {
     backgroundColor: palette.tertiary,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 6,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -918,9 +941,9 @@ const styles = StyleSheet.create({
   },
   ticketButtonText: {
     color: palette.text,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    marginRight: 8,
+    marginRight: 6,
   },
   
   // Video styles

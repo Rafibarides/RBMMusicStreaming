@@ -93,9 +93,6 @@ const SongListPage = ({ songs, title, subtitle, onBack, playSong }) => {
           )}
         </View>
       </View>
-      <TouchableOpacity style={styles.moreButton}>
-        <FontAwesome name="ellipsis-v" size={16} color={palette.quaternary} />
-      </TouchableOpacity>
     </TouchableOpacity>
   );
 
@@ -122,6 +119,7 @@ const SongListPage = ({ songs, title, subtitle, onBack, playSong }) => {
             renderItem={renderSongItem}
             keyExtractor={(item, index) => `${item.id || index}`}
             style={styles.songList}
+            contentContainerStyle={styles.songListContent}
             showsVerticalScrollIndicator={false}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
           />
@@ -166,6 +164,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
+  songListContent: {
+    paddingBottom: 80,
+  },
   songItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -197,9 +198,6 @@ const styles = StyleSheet.create({
   },
   albumName: {
     fontWeight: 'bold',
-  },
-  moreButton: {
-    padding: 10,
   },
   separator: {
     height: 1,

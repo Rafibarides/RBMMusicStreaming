@@ -12,6 +12,51 @@ import {
 import { FontAwesome } from '@expo/vector-icons';
 import { palette } from '../utils/Colors';
 import { useMusicData } from '../contexts/MusicDataContext';
+import forYouPlaylist from '../json/forYouPlaylist.json';
+
+// Collage Artwork Component
+const CollageArtwork = ({ songs, size = 60 }) => {
+  // Take first 4 songs for the collage
+  const collageImages = songs.slice(0, 4);
+  const imageSize = size / 2;
+  
+  return (
+    <View style={[styles.collageContainer, { width: size, height: size }]}>
+      {/* Top row */}
+      <View style={styles.collageRow}>
+        <Image 
+          source={{ uri: collageImages[0]?.coverArt }} 
+          style={[styles.collageImage, { width: imageSize, height: imageSize }]}
+        />
+        <Image 
+          source={{ uri: collageImages[1]?.coverArt }} 
+          style={[styles.collageImage, { width: imageSize, height: imageSize }]}
+        />
+      </View>
+      
+      {/* Bottom row */}
+      <View style={styles.collageRow}>
+        <Image 
+          source={{ uri: collageImages[2]?.coverArt }} 
+          style={[styles.collageImage, { width: imageSize, height: imageSize }]}
+        />
+        <Image 
+          source={{ uri: collageImages[3]?.coverArt }} 
+          style={[styles.collageImage, { width: imageSize, height: imageSize }]}
+        />
+      </View>
+      
+      {/* RBM Logo in bottom right */}
+      <View style={[styles.logoContainer, { width: imageSize * 0.6, height: imageSize * 0.6 }]}>
+        <Image 
+          source={require('../../assets/rbmLogo.png')} 
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
+      </View>
+    </View>
+  );
+};
 
 const Playlists = ({ playSong, initialPlaylistId, onClearInitialPlaylist }) => {
   const { playlists, likedSongs, deletePlaylist, toggleLikeSong, isLoading } = useMusicData();
@@ -27,8 +72,27 @@ const Playlists = ({ playSong, initialPlaylistId, onClearInitialPlaylist }) => {
     isLikedSongs: true
   };
 
-  // Combine liked songs playlist with user playlists
-  const allPlaylists = likedSongs.length > 0 ? [likedSongsPlaylist, ...playlists] : playlists;
+  // Create "Picked for you" playlist
+  const pickedForYouPlaylist = {
+    id: 'picked-for-you',
+    name: 'Picked for you',
+    songs: forYouPlaylist,
+    coverArt: null, // Will use collage
+    createdAt: new Date().toISOString(),
+    isPickedForYou: true,
+    isBuiltIn: true
+  };
+
+  // Combine built-in playlists with user playlists
+  let allPlaylists = [...playlists];
+  
+  // Add "Picked for you" first
+  allPlaylists.unshift(pickedForYouPlaylist);
+  
+  // Add liked songs if there are any
+  if (likedSongs.length > 0) {
+    allPlaylists.unshift(likedSongsPlaylist);
+  }
 
   // Handle initial playlist navigation from Dashboard
   useEffect(() => {
@@ -67,9 +131,14 @@ const Playlists = ({ playSong, initialPlaylistId, onClearInitialPlaylist }) => {
     }
   };
 
-  const handleDeletePlaylist = (playlistId, playlistName, isLikedSongs) => {
+  const handleDeletePlaylist = (playlistId, playlistName, isLikedSongs, isBuiltIn) => {
     if (isLikedSongs) {
       Alert.alert('Cannot Delete', 'Liked Songs is a system playlist and cannot be deleted.');
+      return;
+    }
+    
+    if (isBuiltIn) {
+      // Don't show any popup for built-in playlists, just return silently
       return;
     }
     
@@ -103,14 +172,23 @@ const Playlists = ({ playSong, initialPlaylistId, onClearInitialPlaylist }) => {
 
   const renderPlaylistItem = ({ item }) => (
     <TouchableOpacity 
-      style={[styles.playlistItem, item.isLikedSongs && styles.likedSongsItem]}
+      style={[
+        styles.playlistItem, 
+        item.isLikedSongs && styles.likedSongsItem,
+        item.isPickedForYou && styles.pickedForYouItem
+      ]}
       onPress={() => handlePlaylistPress(item)}
     >
       <View style={styles.playlistCover}>
-        {item.coverArt ? (
+        {item.isPickedForYou ? (
+          <CollageArtwork songs={item.songs} size={60} />
+        ) : item.coverArt ? (
           <Image source={{ uri: item.coverArt }} style={styles.coverImage} />
         ) : (
-          <View style={[styles.defaultCover, item.isLikedSongs && styles.likedSongsDefaultCover]}>
+          <View style={[
+            styles.defaultCover, 
+            item.isLikedSongs && styles.likedSongsDefaultCover
+          ]}>
             <FontAwesome 
               name={item.isLikedSongs ? "heart" : "music"} 
               size={24} 
@@ -121,13 +199,17 @@ const Playlists = ({ playSong, initialPlaylistId, onClearInitialPlaylist }) => {
       </View>
       
       <View style={styles.playlistInfo}>
-        <Text style={[styles.playlistName, item.isLikedSongs && styles.likedSongsName]} numberOfLines={1}>
+        <Text style={[
+          styles.playlistName, 
+          item.isLikedSongs && styles.likedSongsName,
+          item.isPickedForYou && styles.pickedForYouName
+        ]} numberOfLines={1}>
           {item.name}
         </Text>
         <Text style={styles.playlistCount}>
           {item.songs.length} song{item.songs.length !== 1 ? 's' : ''}
         </Text>
-        {!item.isLikedSongs && (
+        {!item.isLikedSongs && !item.isPickedForYou && (
           <Text style={styles.playlistDate}>
             Created {new Date(item.createdAt).toLocaleDateString()}
           </Text>
@@ -136,12 +218,16 @@ const Playlists = ({ playSong, initialPlaylistId, onClearInitialPlaylist }) => {
 
       <TouchableOpacity 
         style={styles.moreButton}
-        onPress={() => handleDeletePlaylist(item.id, item.name, item.isLikedSongs)}
+        onPress={() => handleDeletePlaylist(item.id, item.name, item.isLikedSongs, item.isBuiltIn)}
       >
         <FontAwesome 
-          name={item.isLikedSongs ? "heart" : "trash"} 
+          name={item.isLikedSongs ? "heart" : item.isPickedForYou ? "star" : "trash"} 
           size={16} 
-          color={item.isLikedSongs ? palette.tertiary : palette.quaternary} 
+          color={
+            item.isLikedSongs ? palette.tertiary : 
+            item.isPickedForYou ? palette.tertiary : 
+            palette.quaternary
+          } 
         />
       </TouchableOpacity>
     </TouchableOpacity>
@@ -220,7 +306,9 @@ const Playlists = ({ playSong, initialPlaylistId, onClearInitialPlaylist }) => {
         {/* Playlist Info */}
         <View style={styles.playlistDetail}>
           <View style={styles.detailCover}>
-            {selectedPlaylist.coverArt ? (
+            {selectedPlaylist.isPickedForYou ? (
+              <CollageArtwork songs={selectedPlaylist.songs} size={150} />
+            ) : selectedPlaylist.coverArt ? (
               <Image source={{ uri: selectedPlaylist.coverArt }} style={styles.detailCoverImage} />
             ) : (
               <View style={styles.detailDefaultCover}>
@@ -232,6 +320,11 @@ const Playlists = ({ playSong, initialPlaylistId, onClearInitialPlaylist }) => {
           <Text style={styles.detailPlaylistCount}>
             {selectedPlaylist.songs.length} song{selectedPlaylist.songs.length !== 1 ? 's' : ''}
           </Text>
+          {selectedPlaylist.isPickedForYou && (
+            <Text style={styles.detailPlaylistSubtitle}>
+              Curated by Rafi Barides for Arbiem
+            </Text>
+          )}
         </View>
 
         {/* Songs List */}
@@ -431,6 +524,13 @@ const styles = StyleSheet.create({
     color: palette.quaternary,
     textAlign: 'center',
   },
+  detailPlaylistSubtitle: {
+    fontSize: 14,
+    color: palette.quaternary,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
   songsList: {
     flex: 1,
   },
@@ -473,6 +573,46 @@ const styles = StyleSheet.create({
   likedSongsName: {
     color: palette.tertiary,
     fontWeight: '600',
+  },
+  playlistSubtitle: {
+    fontSize: 12,
+    color: palette.quaternary,
+    fontStyle: 'italic',
+  },
+  pickedForYouItem: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  pickedForYouName: {
+    color: palette.tertiary,
+    fontWeight: '600',
+  },
+  collageContainer: {
+    position: 'relative',
+    backgroundColor: 'transparent',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  collageRow: {
+    flexDirection: 'row',
+  },
+  collageImage: {
+    borderRadius: 0, // No border radius for individual images
+  },
+  logoContainer: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: 'black',
+    borderTopLeftRadius: 8, // Only top-left corner rounded to blend with the collage
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 2,
+  },
+  logoImage: {
+    width: '80%',
+    height: '80%',
+    tintColor: 'white',
   },
 });
 

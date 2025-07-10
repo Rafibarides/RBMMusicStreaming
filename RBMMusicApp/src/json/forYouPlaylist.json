@@ -1,0 +1,60 @@
+[
+  {
+    "id": 1,
+    "title": "Dance With Me",
+    "artist": "Joey",
+    "artistId": 1,
+    "type": "single",
+    "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+    "releaseDate": "2021-01-01"
+  },
+  {
+    "id": 2,
+    "title": "After Dark",
+    "artist": "Joey",
+    "artistId": 1,
+    "album": "After Dark",
+    "albumId": 1,
+    "type": "album",
+    "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+    "releaseDate": "2021-01-01"
+  },
+  {
+    "id": 4,
+    "title": "Remind Me",
+    "artist": "Rafi Barides",
+    "artistId": 5,
+    "album": "Rags to Rags",
+    "albumId": 2,
+    "type": "album",
+    "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/RemindMe.mp3",
+    "releaseDate": "2020-01-01",
+    "lyrics": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/RemindMe.json",
+    "credits": [
+      {
+        "name": "Rafi Barides",
+        "role": "Producer"
+      },
+      {
+        "name": "Nicky V",
+        "role": "Guitar"
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "title": "Positive Affirmations",
+    "artist": "Ben Lerner",
+    "artistId": 4,
+    "album": "The Only Living Boy In Brooklyn",
+    "albumId": 3,
+    "type": "album",
+    "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/01%20Positive%20Affirmations.mp3",
+    "releaseDate": "2024-12-08",
+    "credits": [
+      { "name": "Rafi Barides", "role": "Producer" },
+      { "name": "William Caleb Parker", "role": "Mixing Engineer" },
+      { "name": "Sruli Friedman", "role": "Bass" }
+    ]
+  }
+]

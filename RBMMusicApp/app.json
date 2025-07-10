@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "RBMMusicApp",
-    "slug": "RBMMusicApp",
+    "name": "Arbiem",
+    "slug": "arbiem",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -20,7 +20,7 @@
           "audio"
         ]
       },
-      "bundleIdentifier": "com.rafi-barides.RBMMusicApp"
+      "bundleIdentifier": "com.rafi-barides.Arbiem"
     },
     "android": {
       "adaptiveIcon": {
@@ -35,7 +35,7 @@
         "android.permission.WAKE_LOCK",
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
-      "package": "com.rafi_barides.RBMMusicApp"
+      "package": "com.rafi_barides.Arbiem"
     },
     "web": {
       "favicon": "./assets/favicon.png"

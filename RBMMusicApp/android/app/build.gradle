@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.rafi_barides.RBMMusicApp'
+    namespace 'com.rafi_barides.Arbiem'
     defaultConfig {
-        applicationId 'com.rafi_barides.RBMMusicApp'
+        applicationId 'com.rafi_barides.Arbiem'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

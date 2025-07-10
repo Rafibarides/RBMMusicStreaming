@@ -22,6 +22,14 @@
         "url": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Videos/octoberSky.mp4",
         "releaseDate": "2024-09-01",
         "thumbnail": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Videos/octoberSky.jpg"
+    },
+    {
+        "id": 4,
+        "artistId": 4,
+        "title": "Ben Lerner - Joni",
+        "url": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Videos/Joni%20-%20Ben%20lerner.mp4",
+        "releaseDate": "2024-12-08",
+        "thumbnail": "https://i.ytimg.com/vi/pnn-rjiLsYQ/maxresdefault.jpg"
     }
   ]
   

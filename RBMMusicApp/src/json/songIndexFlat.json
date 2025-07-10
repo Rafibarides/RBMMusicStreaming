@@ -1,60 +1,214 @@
 [
-    {
-      "id": 1,
-      "title": "Dance With Me",
-      "artist": "Joey",
-      "artistId": 1,
-      "type": "single",
-      "coverArt": "https://blog.pixpa.com/wp-content/uploads/2021/03/word-image-122.jpeg",
-      "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-      "releaseDate": "2021-01-01"
-    },
-    {
-      "id": 2,
-      "title": "After Dark",
-      "artist": "Joey",
-      "artistId": 1,
-      "album": "After Dark",
-      "albumId": 1,
-      "type": "album",
-      "coverArt": "https://progradedigital.com/wp-content/uploads/2023/04/31-Main-Image.png",
-      "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-      "releaseDate": "2021-01-01"
-    },
-    {
-      "id": 3,
-      "title": "Summer Nights",
-      "artist": "Joey",
-      "artistId": 1,
-      "album": "After Dark",
-      "albumId": 1,
-      "type": "album",
-      "coverArt": "https://progradedigital.com/wp-content/uploads/2023/04/31-Main-Image.png",
-      "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-      "releaseDate": "2020-01-01"
-    },
-    {
-      "id": 4,
-      "title": "Remind Me",
-      "artist": "Rafi Barides",
-      "artistId": 5,
-      "album": "Rags to Rags",
-      "albumId": 2,
-      "type": "album",
-      "coverArt": "https://i.scdn.co/image/ab67616100005174cc3b1ba3abad6e95ab3d4597",
-      "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/RemindMe.mp3",
-      "releaseDate": "2020-01-01",
-      "lyrics": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/RemindMe.json",
-      "credits": [
-        {
-          "name": "Rafi Barides",
-          "role": "Producer"
-        },
-        {
-          "name": "Nicky V",
-          "role": "Guitar"
-        }
-      ]
-    }
-  ]
-  
+  {
+    "id": 1,
+    "title": "Dance With Me",
+    "artist": "Joey",
+    "artistId": 1,
+    "type": "single",
+    "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+    "releaseDate": "2021-01-01",
+    "genre": "Pop"
+  },
+  {
+    "id": 2,
+    "title": "After Dark",
+    "artist": "Joey",
+    "artistId": 1,
+    "album": "After Dark",
+    "albumId": 1,
+    "type": "album",
+    "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+    "releaseDate": "2021-01-01",
+    "genre": "Dance"
+  },
+  {
+    "id": 3,
+    "title": "Summer Nights",
+    "artist": "Joey",
+    "artistId": 1,
+    "album": "After Dark",
+    "albumId": 1,
+    "type": "album",
+    "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+    "releaseDate": "2020-01-01",
+    "genre": "Electronic"
+  },
+  {
+    "id": 4,
+    "title": "Remind Me",
+    "artist": "Rafi Barides",
+    "artistId": 5,
+    "album": "Rags to Rags",
+    "albumId": 2,
+    "type": "album",
+    "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/RemindMe.mp3",
+    "releaseDate": "2020-01-01",
+    "lyrics": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/RemindMe.json",
+    "credits": [
+      {
+        "name": "Rafi Barides",
+        "role": "Producer"
+      },
+      {
+        "name": "Nicky V",
+        "role": "Guitar"
+      }
+    ],
+    "genre": "Singer-Songwriter"
+  },
+  {
+    "id": 5,
+    "title": "Positive Affirmations",
+    "artist": "Ben Lerner",
+    "artistId": 4,
+    "album": "The Only Living Boy In Brooklyn",
+    "albumId": 3,
+    "type": "album",
+    "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/01%20Positive%20Affirmations.mp3",
+    "releaseDate": "2024-12-08",
+    "credits": [
+      { "name": "Rafi Barides", "role": "Producer" },
+      { "name": "William Caleb Parker", "role": "Mixing Engineer" },
+      { "name": "Sruli Friedman", "role": "Bass" }
+    ],
+    "genre": "Singer-Songwriter"
+  },
+  {
+    "id": 6,
+    "title": "Try & Fail",
+    "artist": "Ben Lerner",
+    "artistId": 4,
+    "album": "The Only Living Boy In Brooklyn",
+    "albumId": 3,
+    "type": "album",
+    "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/02%20Try%20&%20Fail.mp3",
+    "releaseDate": "2024-12-08",
+    "credits": [
+      { "name": "Rafi Barides", "role": "Producer" },
+      { "name": "William Caleb Parker", "role": "Mixing Engineer" },
+      { "name": "Sruli Friedman", "role": "Bass" }
+    ],
+    "genre": "Singer-Songwriter"
+  },
+  {
+    "id": 7,
+    "title": "Life Only Started",
+    "artist": "Ben Lerner",
+    "artistId": 4,
+    "album": "The Only Living Boy In Brooklyn",
+    "albumId": 3,
+    "type": "album",
+    "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/03%20Life%20Only%20Started.mp3",
+    "releaseDate": "2024-12-08",
+    "credits": [
+      { "name": "Rafi Barides", "role": "Producer" },
+      { "name": "William Caleb Parker", "role": "Mixing Engineer" },
+      { "name": "Sruli Friedman", "role": "Bass" }
+    ],
+    "genre": "Singer-Songwriter"
+  },
+  {
+    "id": 8,
+    "title": "You Wont See Me Again",
+    "artist": "Ben Lerner",
+    "artistId": 4,
+    "album": "The Only Living Boy In Brooklyn",
+    "albumId": 3,
+    "type": "album",
+    "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/04%20You%20Wont%20See%20Me%20Again.mp3",
+    "releaseDate": "2024-12-08",
+    "credits": [
+      { "name": "Rafi Barides", "role": "Producer" },
+      { "name": "William Caleb Parker", "role": "Mixing Engineer" },
+      { "name": "Sruli Friedman", "role": "Bass" },
+      { "name": "Your Cousin Avi", "role": "Drums" }
+    ],
+    "genre": "Singer-Songwriter"
+  },
+  {
+    "id": 9,
+    "title": "Young Boy",
+    "artist": "Ben Lerner",
+    "artistId": 4,
+    "album": "The Only Living Boy In Brooklyn",
+    "albumId": 3,
+    "type": "album",
+    "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/05%20Young%20Boy.mp3",
+    "releaseDate": "2024-12-08",
+    "credits": [
+      { "name": "Rafi Barides", "role": "Producer" },
+      { "name": "William Caleb Parker", "role": "Mixing Engineer" },
+      { "name": "Sruli Friedman", "role": "Bass" },
+      { "name": "Danae Greenfield", "role": "Piano" },
+      { "name": "YC Sufferin", "role": "Guitar" },
+      { "name": "Jacques Smith Jr.", "role": "Drums" },
+      { "name": "Matt Breuer", "role": "Trombone" },
+      { "name": "Andrew McGovern", "role": "Trumpet" },
+      { "name": "Avromi Basch", "role": "Sax" },
+      { "name": "Gavi Kutliroff", "role": "BGV" },
+      { "name": "Yitzchok Friedman", "role": "BGV" },
+      { "name": "Rafi Barides", "role": "BGV" }
+    ],
+    "genre": "Singer-Songwriter"
+  },
+  {
+    "id": 10,
+    "title": "GenZ",
+    "artist": "Ben Lerner",
+    "artistId": 4,
+    "album": "The Only Living Boy In Brooklyn",
+    "albumId": 3,
+    "type": "album",
+    "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/06%20GenZ.mp3",
+    "releaseDate": "2024-12-08",
+    "credits": [
+      { "name": "Rafi Barides", "role": "Producer" },
+      { "name": "William Caleb Parker", "role": "Mixing Engineer" },
+      { "name": "Sruli Friedman", "role": "Bass" }
+    ],
+    "genre": "Bossa Nova"
+  },
+  {
+    "id": 11,
+    "title": "Good Times",
+    "artist": "Ben Lerner",
+    "artistId": 4,
+    "album": "The Only Living Boy In Brooklyn",
+    "albumId": 3,
+    "type": "album",
+    "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/07%20Good%20Times.mp3",
+    "releaseDate": "2024-12-08",
+    "credits": [
+      { "name": "Rafi Barides", "role": "Producer" },
+      { "name": "William Caleb Parker", "role": "Mixing Engineer" },
+      { "name": "Sruli Friedman", "role": "Bass" }
+    ],
+    "genre": "Singer-Songwriter"
+  },
+  {
+    "id": 12,
+    "title": "Try & Fail LIVE",
+    "artist": "Ben Lerner",
+    "artistId": 4,
+    "album": "The Only Living Boy In Brooklyn",
+    "albumId": 3,
+    "type": "album",
+    "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/08%20Try%20&%20Fail%20LIVE.mp3",
+    "releaseDate": "2024-12-08",
+    "credits": [
+      { "name": "Rafi Barides", "role": "Producer" },
+      { "name": "William Caleb Parker", "role": "Mixing Engineer" },
+      { "name": "Sruli Friedman", "role": "Bass" },
+      { "name": "Danae Greenfield", "role": "Piano" },
+      { "name": "YC Sufferin", "role": "Guitar" },
+      { "name": "Jacques Smith Jr.", "role": "Drums" },
+      { "name": "Matt Breuer", "role": "Trombone" },
+      { "name": "Andrew McGovern", "role": "Trumpet" },
+      { "name": "Avromi Basch", "role": "Sax" },
+      { "name": "Gavi Kutliroff", "role": "BGV" },
+      { "name": "Yitzchok Friedman", "role": "BGV" },
+      { "name": "Rafi Barides", "role": "BGV" }
+    ],
+    "genre": "Singer-Songwriter"
+  }
+]

@@ -1,12 +1,12 @@
 [
     {
         "id": 1,
-        "name": "Joe Hamburg",
+        "name": "Joey",
         "image": "https://i.pinimg.com/736x/3c/b5/00/3cb5006d920ab3293da41860dcef7bd4.jpg",
         "singles": [
             {
                 "id": 1,
-                "name": "Sunny Mornings",
+                "name": "Dance With Me",
                 "coverArt": "https://blog.pixpa.com/wp-content/uploads/2021/03/word-image-122.jpeg",
                 "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
                 "releaseDate": "2021-01-01",
@@ -18,20 +18,6 @@
                 "id": 1,
                 "name": "After Dark",
                 "coverArt": "https://progradedigital.com/wp-content/uploads/2023/04/31-Main-Image.png",
-                "songs": [
-                    {
-                        "id": 2,
-                        "name": "The Way You Look Tonight",
-                        "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-                        "albumId": 1
-                    },
-                    {
-                        "id": 3,
-                        "name": "Summer Love",
-                        "audio": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-                        "albumId": 1
-                    }
-                ],
                 "releaseDate": "2021-01-01"
             }
         ],
@@ -50,7 +36,15 @@
     {
         "id": 4,
         "name": "Ben Lerner",
-        "image": "https://yt3.googleusercontent.com/NaTo0Ry2V0NOBedf3IrnuWj8QiQ8SGZ3AzSHG3-WJSjlIQ9ZmftUEBjw0HWn9XU8hLxIFY39_w=s900-c-k-c0x00ffffff-no-rj"
+        "image": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/benLerner.jpg",
+        "albums": [
+            {
+                "id": 3,
+                "name": "The Only Living Boy in Brooklyn",
+                "coverArt": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ben%20Lerner/Albums/theOnlyLivingBoyInBrooklyn/theOnlyLivingBoyInBrooklyn.jpg",
+                "releaseDate": "2024-12-08"
+            }
+        ]
     },
     {
         "id": 5,
@@ -61,28 +55,15 @@
                 "id": 2,
                 "name": "Rags to Rags",
                 "coverArt": "https://i.scdn.co/image/ab67616100005174cc3b1ba3abad6e95ab3d4597",
-                "songs": [
-                                    {
-                    "id": 4,
-                    "name": "Remind Me",
-                    "audio": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/RemindMe.mp3",
-                    "albumId": 2,
-                    "lyrics": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Rafi%20Barides/Albums/RagsToRags/RemindMe.json",
-                    "credits": [
-                        {
-                            "name": "Rafi Barides",
-                            "role": "Producer"
-                        },
-                        {
-                            "name": "Nicky V",
-                            "role": "Guitar"
-                        }
-                    ]
-                }
-                ]
+                "releaseDate": "2020-01-01"
             }
         ],
         "bio": "Rafi Barides is a singer-songwriter from Los Angeles, California. He has been making music for over 10 years and has released several albums and singles.",
         "supportLink": "https://www.paypal.com"
+    },
+    {
+        "id": 6,
+        "name": "Ericah",
+        "image": "https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/Artists/Ericah/ericah.jpeg"
     }
 ]

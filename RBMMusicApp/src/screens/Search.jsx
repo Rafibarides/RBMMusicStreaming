@@ -21,9 +21,11 @@ import artistsData from '../json/artists.json';
 import songsData from '../json/songIndexFlat.json';
 import eventsData from '../json/eventIndexFlat.json';
 import videosData from '../json/videoIndexFlat.json';
+import forYouPlaylist from '../json/forYouPlaylist.json';
 
 // Import pages
 import ArtistPage from '../pages/ArtistPage';
+import Genres from '../pages/Genres';
 
 const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSong, onStopAudio }) => {
   const {
@@ -34,6 +36,31 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
     selectedArtist,
     songListData
   } = searchState;
+
+  // Helper function to get cover art for a song
+  const getSongCoverArt = (song) => {
+    // Find the artist
+    const artist = artistsData.find(a => a.id === song.artistId);
+    if (!artist) return null;
+
+    // For album tracks, get cover art from album
+    if (song.type === 'album' && song.albumId && artist.albums) {
+      const album = artist.albums.find(a => a.id === song.albumId);
+      if (album) {
+        return album.coverArt;
+      }
+    }
+
+    // For singles, get cover art from single
+    if (song.type === 'single' && artist.singles) {
+      const single = artist.singles.find(s => s.id === song.id);
+      if (single) {
+        return single.coverArt;
+      }
+    }
+
+    return null;
+  };
 
   // Local state for events page
   const [eventsSearchQuery, setEventsSearchQuery] = useState('');
@@ -46,6 +73,12 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
   const [filteredVideos, setFilteredVideos] = useState(videosData);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [videoAspectRatio, setVideoAspectRatio] = useState(16/9);
+
+  // Local state for new music (recently added) page
+  const [showNewMusic, setShowNewMusic] = useState(false);
+
+  // Local state for genres page
+  const [showGenres, setShowGenres] = useState(false);
 
   // Search categories grid
   const searchCategories = [
@@ -89,7 +122,7 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
           type: 'song',
           name: song.title,
           artist: song.artist,
-          image: song.coverArt,
+          image: getSongCoverArt(song),
           data: song
         });
       }
@@ -218,6 +251,33 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
     });
   };
 
+  // Handle navigation to new music (recently added)
+  const navigateToNewMusic = () => {
+    setShowNewMusic(true);
+  };
+
+  // Handle navigation back from new music
+  const navigateBackFromNewMusic = () => {
+    setShowNewMusic(false);
+  };
+
+  // Get recently added songs (top 10 by release date) - same as Dashboard
+  const getRecentlyAddedSongs = () => {
+    return [...songsData]
+      .sort((a, b) => new Date(b.releaseDate) - new Date(a.releaseDate))
+      .slice(0, 10);
+  };
+
+  // Handle navigation to genres
+  const navigateToGenres = () => {
+    setShowGenres(true);
+  };
+
+  // Handle navigation back from genres
+  const navigateBackFromGenres = () => {
+    setShowGenres(false);
+  };
+
   // Format date for display
   const formatEventDate = (dateString) => {
     const date = new Date(dateString);
@@ -307,6 +367,10 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
           navigateToEvents();
         } else if (item.title === 'Music Videos') {
           navigateToVideos();
+        } else if (item.title === 'New Music') {
+          navigateToNewMusic();
+        } else if (item.title === 'Genres') {
+          navigateToGenres();
         } else {
           // TODO: Navigate to other category pages
           console.log(`Pressed ${item.title}`);
@@ -628,6 +692,63 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
      </View>
    );
 
+  // Render new music (recently added) page
+  const renderNewMusicPage = () => {
+    const recentlyAddedSongs = getRecentlyAddedSongs();
+    
+    return (
+      <View style={styles.container}>
+        <View style={styles.newMusicHeader}>
+          <TouchableOpacity 
+            style={styles.newMusicBackButton}
+            onPress={navigateBackFromNewMusic}
+          >
+            <FontAwesome name="chevron-left" size={20} color={palette.text} />
+          </TouchableOpacity>
+          <Text style={styles.newMusicTitle}>New Music</Text>
+          <Text style={styles.newMusicCount}>({recentlyAddedSongs.length} songs)</Text>
+        </View>
+
+        <FlatList
+          data={recentlyAddedSongs}
+          renderItem={({ item, index }) => (
+            <TouchableOpacity 
+              style={styles.newMusicSongItem}
+              onPress={() => {
+                if (playSong) {
+                  playSong(item, recentlyAddedSongs, index);
+                }
+              }}
+            >
+              <View style={styles.rankContainer}>
+                <Text style={styles.rankNumber}>{index + 1}</Text>
+              </View>
+              <Image 
+                source={{ uri: getSongCoverArt(item) }} 
+                style={styles.newMusicSongCover}
+              />
+              <View style={styles.newMusicSongInfo}>
+                <Text style={styles.newMusicSongTitle} numberOfLines={1}>
+                  {item.title}
+                </Text>
+                <Text style={styles.newMusicSongArtist} numberOfLines={1}>
+                  {item.artist}
+                </Text>
+                <Text style={styles.newMusicReleaseDate}>
+                  Released {new Date(item.releaseDate).toLocaleDateString()}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
+          keyExtractor={(item) => item.id.toString()}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.newMusicListContainer}
+          ItemSeparatorComponent={() => <View style={styles.newMusicSeparator} />}
+        />
+      </View>
+    );
+  };
+
   // Render events page
   const renderEventsPage = () => (
     <View style={styles.container}>
@@ -761,19 +882,62 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
           </View>
         )}
 
-        {/* Categories Grid (show when not searching) */}
+        {/* Categories Grid and Recommended Songs (show when not searching) */}
         {!showResults && (
-          <View style={styles.categoriesContainer}>
-            <FlatList
-              data={searchCategories}
-              renderItem={renderCategoryButton}
-              keyExtractor={(item) => item.id.toString()}
-              numColumns={2}
-              scrollEnabled={false}
-              keyboardShouldPersistTaps="always"
-              columnWrapperStyle={styles.categoryRow}
-            />
-          </View>
+          <>
+            {/* Categories Grid */}
+            <View style={styles.categoriesContainer}>
+              <FlatList
+                data={searchCategories}
+                renderItem={renderCategoryButton}
+                keyExtractor={(item) => item.id.toString()}
+                numColumns={2}
+                scrollEnabled={false}
+                keyboardShouldPersistTaps="always"
+                columnWrapperStyle={styles.categoryRow}
+              />
+            </View>
+
+            {/* Recommended Songs */}
+            <View style={styles.recommendedContainer}>
+              <Text style={styles.recommendedTitle}>Recommended for You</Text>
+              <FlatList
+                data={forYouPlaylist}
+                renderItem={({ item, index }) => (
+                  <TouchableOpacity 
+                    style={styles.recommendedSongItem}
+                    onPress={() => {
+                      if (playSong) {
+                        playSong(item, forYouPlaylist, index);
+                      }
+                    }}
+                  >
+                    <Image 
+                      source={{ uri: getSongCoverArt(item) }} 
+                      style={styles.recommendedSongCover}
+                    />
+                    <View style={styles.recommendedSongInfo}>
+                      <Text style={styles.recommendedSongTitle} numberOfLines={1}>
+                        {item.title}
+                      </Text>
+                      <Text style={styles.recommendedSongArtist} numberOfLines={1}>
+                        {item.artist}
+                      </Text>
+                      {item.album && (
+                        <Text style={styles.recommendedSongAlbum} numberOfLines={1}>
+                          {item.album}
+                        </Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                )}
+                keyExtractor={(item) => item.id.toString()}
+                scrollEnabled={false}
+                keyboardShouldPersistTaps="always"
+                ItemSeparatorComponent={() => <View style={styles.recommendedSeparator} />}
+              />
+            </View>
+          </>
         )}
       </ScrollView>
     </View>
@@ -803,6 +967,21 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
 
   if (currentPage === 'videoPlayer') {
     return renderVideoPlayer();
+  }
+
+  // Show new music page if active
+  if (showNewMusic) {
+    return renderNewMusicPage();
+  }
+
+  // Show genres page if active
+  if (showGenres) {
+    return (
+      <Genres 
+        onBack={navigateBackFromGenres}
+        playSong={playSong}
+      />
+    );
   }
 
   return renderSearchPage();
@@ -918,6 +1097,52 @@ const styles = StyleSheet.create({
   },
   categoryRow: {
     justifyContent: 'space-between',
+  },
+  
+  // Recommended for You section styles
+  recommendedContainer: {
+    paddingHorizontal: 20,
+    marginTop: 20,
+  },
+  recommendedTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: palette.text,
+    marginBottom: 15,
+  },
+  recommendedSongItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  recommendedSongCover: {
+    width: 50,
+    height: 50,
+    borderRadius: 6,
+    marginRight: 15,
+  },
+  recommendedSongInfo: {
+    flex: 1,
+  },
+  recommendedSongTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: palette.text,
+    marginBottom: 2,
+  },
+  recommendedSongArtist: {
+    fontSize: 14,
+    color: palette.quaternary,
+    marginBottom: 2,
+  },
+  recommendedSongAlbum: {
+    fontSize: 12,
+    color: palette.quaternary,
+  },
+  recommendedSeparator: {
+    height: 1,
+    backgroundColor: palette.secondary,
+    marginLeft: 65,
   },
   
   // Events page styles
@@ -1291,6 +1516,123 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: palette.secondary,
     marginLeft: 135,
+  },
+  
+  // New Music (Recently Added) page styles
+  newMusicHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 50,
+    paddingBottom: 20,
+  },
+  newMusicBackButton: {
+    padding: 10,
+    marginRight: 10,
+  },
+  newMusicTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: palette.text,
+    flex: 1,
+  },
+  newMusicCount: {
+    fontSize: 16,
+    color: palette.quaternary,
+  },
+  newMusicListContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 100,
+  },
+  newMusicSongItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  rankContainer: {
+    width: 30,
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  rankNumber: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: palette.tertiary,
+  },
+  newMusicSongCover: {
+    width: 45,
+    height: 45,
+    borderRadius: 6,
+    marginRight: 15,
+  },
+  newMusicSongInfo: {
+    flex: 1,
+  },
+  newMusicSongTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: palette.text,
+    marginBottom: 2,
+  },
+  newMusicSongArtist: {
+    fontSize: 14,
+    color: palette.quaternary,
+    marginBottom: 2,
+  },
+  newMusicReleaseDate: {
+    fontSize: 12,
+    color: palette.quaternary,
+  },
+  newMusicSeparator: {
+    height: 1,
+    backgroundColor: palette.secondary,
+    marginLeft: 75,
+  },
+
+  // Recommended for You section styles
+  recommendedContainer: {
+    paddingHorizontal: 20,
+    marginTop: 20,
+  },
+  recommendedTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: palette.text,
+    marginBottom: 15,
+  },
+  recommendedSongItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  recommendedSongCover: {
+    width: 50,
+    height: 50,
+    borderRadius: 6,
+    marginRight: 15,
+  },
+  recommendedSongInfo: {
+    flex: 1,
+  },
+  recommendedSongTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: palette.text,
+    marginBottom: 2,
+  },
+  recommendedSongArtist: {
+    fontSize: 14,
+    color: palette.quaternary,
+    marginBottom: 2,
+  },
+  recommendedSongAlbum: {
+    fontSize: 12,
+    color: palette.quaternary,
+  },
+  recommendedSeparator: {
+    height: 1,
+    backgroundColor: palette.secondary,
+    marginLeft: 75,
   },
 });
 

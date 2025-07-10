@@ -532,48 +532,44 @@ const AppContent = () => {
   const getArtistSongs = (artist) => {
     const songs = [];
     
-    // Add singles
-    if (artist.singles) {
-      artist.singles.forEach(single => {
-        // Find matching song in songIndexFlat to get credits
-        const flatSong = songIndexFlat.find(s => s.id === single.id);
-        
-        songs.push({
-          id: single.id,
-          title: single.name,
-          artist: artist.name,
-          coverArt: single.coverArt,
-          audio: single.audio,
-          lyrics: single.lyrics, // Include lyrics property
-          credits: single.credits || flatSong?.credits, // Use credits from song first, then fallback to flatSong
-          type: 'single'
-        });
-      });
-    }
+    // Get all songs by this artist from songIndexFlat
+    const artistSongs = songIndexFlat.filter(song => song.artistId === artist.id);
     
-    // Add album tracks
-    if (artist.albums) {
-      artist.albums.forEach(album => {
-        if (album.songs) {
-          album.songs.forEach(song => {
-            // Find matching song in songIndexFlat to get credits
-            const flatSong = songIndexFlat.find(s => s.id === song.id);
-            
-            songs.push({
-              id: song.id,
-              title: song.name,
-              artist: artist.name,
-              album: album.name,
-              coverArt: album.coverArt,
-              audio: song.audio,
-              lyrics: song.lyrics, // Include lyrics property
-              credits: song.credits || flatSong?.credits, // Use credits from song first, then fallback to flatSong
-              type: 'album'
-            });
-          });
+    artistSongs.forEach(song => {
+      // For album tracks, get the cover art from the album info in artist data
+      let coverArt = song.coverArt;
+      let albumName = song.album;
+      
+      if (song.type === 'album' && song.albumId && artist.albums) {
+        const album = artist.albums.find(a => a.id === song.albumId);
+        if (album) {
+          coverArt = album.coverArt;
+          albumName = album.name;
         }
+      }
+      
+      // For singles, get the cover art from the single info in artist data
+      if (song.type === 'single' && artist.singles) {
+        const single = artist.singles.find(s => s.id === song.id);
+        if (single) {
+          coverArt = single.coverArt;
+        }
+      }
+      
+      songs.push({
+        id: song.id,
+        title: song.title,
+        artist: artist.name,
+        album: albumName,
+        coverArt: coverArt,
+        audio: song.audio,
+        lyrics: song.lyrics,
+        credits: song.credits,
+        type: song.type,
+        releaseDate: song.releaseDate,
+        genre: song.genre
       });
-    }
+    });
     
     return songs;
   };
