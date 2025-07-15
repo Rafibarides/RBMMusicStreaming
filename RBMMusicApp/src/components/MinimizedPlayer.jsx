@@ -4,6 +4,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, runOnJS } from 'react-native-reanimated';
 import { palette } from '../utils/Colors';
+import CachedImage from './CachedImage';
 
 const MinimizedPlayer = ({ 
   song, 
@@ -122,7 +123,7 @@ const MinimizedPlayer = ({
           <BlurView intensity={25} style={styles.blurContainer} pointerEvents="box-none">
             {/* Song artwork */}
             <View style={styles.artworkContainer}>
-              <Image 
+              <CachedImage 
                 source={{ uri: song.coverArt }} 
                 style={styles.artwork}
               />

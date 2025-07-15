@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,15 +15,58 @@ import { FontAwesome } from '@expo/vector-icons';
 import { GestureHandlerRootView, PanGestureHandler } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedGestureHandler, useAnimatedStyle, runOnJS, withSpring } from 'react-native-reanimated';
 import { palette } from '../utils/Colors';
+import { useMusicData } from '../contexts/MusicDataContext';
+import CachedImage from '../components/CachedImage';
 import SongListPage from './SongListPage';
-import songIndexFlat from '../json/songIndexFlat.json';
 import eventIndexFlat from '../json/eventIndexFlat.json';
-import videoIndexFlat from '../json/videoIndexFlat.json';
 
-const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, onStopAudio }) => {
+const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, onStopAudio, onRegisterVideoStopCallback, onUnregisterVideoStopCallback }) => {
+  const { 
+    videoIndexFlat, 
+    videoIndexFlatLoading, 
+    songIndexFlat, 
+    songIndexFlatLoading, 
+    artistImagesPreloaded 
+  } = useMusicData();
   const [activeTab, setActiveTab] = useState('Music');
   const [videoAspectRatios, setVideoAspectRatios] = useState({});
   const [playingVideoId, setPlayingVideoId] = useState(null);
+  
+  // Reset any local state when artist changes
+  useEffect(() => {
+    setVideoAspectRatios({});
+    setPlayingVideoId(null);
+  }, [artist?.id]);
+
+  // Function to stop currently playing video
+  const stopCurrentVideo = () => {
+    if (playingVideoId) {
+      console.log('🛑 Stopping video due to music playback');
+      setPlayingVideoId(null);
+    }
+  };
+
+  // Register video stop callback when component mounts or playingVideoId changes
+  useEffect(() => {
+    if (onRegisterVideoStopCallback) {
+      onRegisterVideoStopCallback(stopCurrentVideo);
+    }
+    
+    return () => {
+      if (onUnregisterVideoStopCallback) {
+        onUnregisterVideoStopCallback();
+      }
+    };
+  }, [onRegisterVideoStopCallback, onUnregisterVideoStopCallback, playingVideoId]);
+
+  // Cleanup effect to stop any playing video when component unmounts
+  useEffect(() => {
+    return () => {
+      if (playingVideoId) {
+        setPlayingVideoId(null);
+      }
+    };
+  }, []);
   
   // Use search state if provided, otherwise fall back to local state
   const currentView = searchState?.songListData ? 'songList' : 'profile';
@@ -46,7 +89,7 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
     },
     onEnd: (event) => {
       if (event.translationX > 100 && event.velocityX > 0) {
-        runOnJS(onBack)();
+        runOnJS(handleBackNavigation)();
       } else {
         translateX.value = withSpring(0);
       }
@@ -82,6 +125,10 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
 
   // Get all songs from artist (singles + album tracks)
   const getAllArtistSongs = () => {
+    if (songIndexFlatLoading || !songIndexFlat) {
+      return [];
+    }
+    
     const allSongs = [];
     
     // Get all songs by this artist from songIndexFlat
@@ -144,6 +191,10 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
 
   // Navigate to album songs
   const navigateToAlbum = (album) => {
+    if (songIndexFlatLoading || !songIndexFlat) {
+      return;
+    }
+    
     // Get songs for this album from songIndexFlat
     const albumSongs = songIndexFlat.filter(song => song.albumId === album.id).map(song => ({
       id: song.id,
@@ -185,7 +236,7 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
       style={styles.albumItem}
       onPress={() => navigateToAlbum(item)}
     >
-      <Image source={{ uri: item.coverArt }} style={styles.albumCover} />
+      <CachedImage source={{ uri: item.coverArt }} style={styles.albumCover} />
       <Text style={styles.albumTitle} numberOfLines={1}>{item.name}</Text>
       <Text style={styles.albumArtist} numberOfLines={1}>{artist.name}</Text>
     </TouchableOpacity>
@@ -203,7 +254,7 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
         navigateToAlbum(data);
       } else {
         // Play the single
-        if (playSong) {
+        if (playSong && !songIndexFlatLoading && songIndexFlat) {
           // Find the single in songIndexFlat
           const flatSong = songIndexFlat.find(s => s.id === data.id);
           
@@ -234,11 +285,11 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
           style={styles.latestReleaseItem}
           onPress={handleLatestReleasePress}
         >
-          <Image source={{ uri: data.coverArt }} style={styles.latestReleaseCover} />
+          <CachedImage source={{ uri: data.coverArt }} style={styles.latestReleaseCover} />
           <View style={styles.latestReleaseInfo}>
             <Text style={styles.latestReleaseTitle}>{data.name}</Text>
             <Text style={styles.latestReleaseType}>
-              {isAlbum ? `Album • ${songIndexFlat.filter(song => song.albumId === data.id).length} songs` : 'Single'}
+              {isAlbum ? `Album • ${songIndexFlatLoading || !songIndexFlat ? 0 : songIndexFlat.filter(song => song.albumId === data.id).length} songs` : 'Single'}
             </Text>
             <Text style={styles.latestReleaseArtist}>{artist.name}</Text>
           </View>
@@ -281,6 +332,14 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
 
   // Render video content
   const renderVideoContent = () => {
+    if (videoIndexFlatLoading) {
+      return (
+        <View style={styles.emptyStateContainer}>
+          <Text style={styles.emptyStateText}>Loading videos...</Text>
+        </View>
+      );
+    }
+
     const artistVideos = getArtistVideos();
 
     if (artistVideos.length === 0) {
@@ -323,6 +382,7 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
   // Handle video play - stop any current audio and other videos
   const handleVideoPlay = (videoId) => {
     if (onStopAudio) {
+      console.log('🎥 Starting video - stopping any playing audio');
       onStopAudio();
     }
     // Set this video as the currently playing one (stops all others)
@@ -335,6 +395,14 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
     if (playingVideoId === videoId) {
       setPlayingVideoId(null);
     }
+  };
+
+  // Handle back navigation - stop any playing video first
+  const handleBackNavigation = () => {
+    if (playingVideoId) {
+      setPlayingVideoId(null);
+    }
+    onBack();
   };
 
   // Render single video item
@@ -414,7 +482,7 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
       
       <View style={styles.eventMainContent}>
         {/* Artist Image */}
-        <Image source={{ uri: artist.image }} style={styles.eventArtistImage} />
+        <CachedImage source={{ uri: artist.image }} style={styles.eventArtistImage} />
         
         {/* Event Info */}
         <View style={styles.eventInfo}>
@@ -504,6 +572,40 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
     );
   };
 
+  // Render about content
+  const renderAboutContent = () => {
+    const hasBio = artist.bio;
+    const hasInstagram = artist.instagram;
+
+    return (
+      <View style={styles.aboutContainer}>
+        {hasBio ? (
+          <Text style={styles.bioText}>
+            {artist.bio}
+          </Text>
+        ) : (
+          <Text style={styles.noBioText}>
+            No bio yet.
+          </Text>
+        )}
+        
+        {hasInstagram && (
+          <TouchableOpacity 
+            style={styles.instagramButton}
+            onPress={() => {
+              Linking.openURL(artist.instagram).catch(err => 
+                console.error('Error opening Instagram link:', err)
+              );
+            }}
+          >
+            <FontAwesome name="instagram" size={20} color={palette.text} style={styles.instagramIcon} />
+            <Text style={styles.instagramButtonText}>Follow on Instagram</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+
 
 
   // Show SongListPage if currentView is 'songList'
@@ -525,13 +627,16 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
         <Animated.View style={[styles.container, animatedStyle]}>
           <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
             {/* Header with back button */}
-            <TouchableOpacity style={styles.backButton} onPress={onBack}>
+            <TouchableOpacity style={styles.backButton} onPress={handleBackNavigation}>
               <FontAwesome name="chevron-left" size={20} color={palette.text} />
             </TouchableOpacity>
 
             {/* Artist Image */}
             <View style={styles.imageContainer}>
-              <Image source={{ uri: artist.image }} style={styles.artistImage} />
+              <CachedImage 
+                source={{ uri: artist.image }} 
+                style={styles.artistImage}
+              />
             </View>
 
             {/* Artist Info & Controls */}
@@ -566,7 +671,7 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
               style={styles.tabMenu}
               contentContainerStyle={styles.tabMenuContent}
             >
-              {['Music', 'Video', 'Events', 'Support Me'].map((tab) => (
+              {['Music', 'Video', 'Events', 'Support Me', 'About Me'].map((tab) => (
                 <TouchableOpacity
                   key={tab}
                   style={[
@@ -622,6 +727,13 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
                 activeTab !== 'Support Me' && styles.hiddenTabPanel
               ]}>
                 {renderSupportContent()}
+              </View>
+              
+              <View style={[
+                styles.tabPanel,
+                activeTab !== 'About Me' && styles.hiddenTabPanel
+              ]}>
+                {renderAboutContent()}
               </View>
             </View>
           </ScrollView>
@@ -809,6 +921,7 @@ const styles = StyleSheet.create({
   emptyStateContainer: {
     paddingVertical: 40,
     alignItems: 'center',
+    marginBottom: 120,
   },
   emptyStateText: {
     fontSize: 18,
@@ -865,12 +978,50 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     textAlign: 'center',
     lineHeight: 20,
+    marginBottom: 120,
+  },
+
+  // About Me styles
+  aboutContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  bioText: {
+    fontSize: 16,
+    color: palette.text,
+    lineHeight: 24,
+    marginBottom: 30,
+  },
+  noBioText: {
+    fontSize: 16,
+    color: palette.quaternary,
+    opacity: 0.7,
+    textAlign: 'center',
+    marginBottom: 30,
+  },
+  instagramButton: {
+    backgroundColor: palette.secondary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 120,
+  },
+  instagramIcon: {
+    marginRight: 8,
+  },
+  instagramButtonText: {
+    color: palette.text,
+    fontSize: 16,
+    fontWeight: '600',
   },
   
   // Events styles
   eventsContainer: {
-    paddingBottom: 20,
-    marginBottom: 80,
+    paddingBottom: 40,
+    marginBottom: 120,
   },
   eventItem: {
     backgroundColor: 'rgba(0, 0, 0, 0.3)',

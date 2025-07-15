@@ -14,12 +14,11 @@ import {
 import { FontAwesome } from '@expo/vector-icons';
 import { palette } from '../utils/Colors';
 import { useMusicData } from '../contexts/MusicDataContext';
-import songIndexFlat from '../json/songIndexFlat.json';
-import artistsData from '../json/artists.json';
+import CachedImage from '../components/CachedImage';
 import Popular from '../pages/Popular';
 
 // Helper function to get cover art for a song
-const getSongCoverArt = (song) => {
+const getSongCoverArt = (song, artists) => {
   if (!song) return null;
   
   // If song already has coverArt (for backward compatibility), use it
@@ -28,7 +27,7 @@ const getSongCoverArt = (song) => {
   }
 
   // Find the artist
-  const artist = artistsData.find(a => a.id === song.artistId);
+  const artist = artists.find(a => a.id === song.artistId);
   if (!artist) {
     console.log(`Artist not found for song: ${song.title}, artistId: ${song.artistId}`);
     return null;
@@ -65,7 +64,15 @@ const getSongCoverArt = (song) => {
 };
 
 const Dashboard = ({ playSong, onNavigateToPlaylists, onNavigateToArtist }) => {
-  const { likedSongs, recentPlays, isLoading } = useMusicData();
+  const { 
+    likedSongs, 
+    recentPlays, 
+    isLoading, 
+    songIndexFlat, 
+    songIndexFlatLoading, 
+    artists, 
+    artistsLoading 
+  } = useMusicData();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [showCatalog, setShowCatalog] = useState(false);
   const [showRecentlyAdded, setShowRecentlyAdded] = useState(false);
@@ -84,6 +91,10 @@ const Dashboard = ({ playSong, onNavigateToPlaylists, onNavigateToArtist }) => {
 
   // Organize songs alphabetically with letter dividers
   const getAlphabeticalSongs = () => {
+    if (songIndexFlatLoading || !songIndexFlat) {
+      return [];
+    }
+    
     const sortedSongs = [...songIndexFlat].sort((a, b) => 
       a.title.toLowerCase().localeCompare(b.title.toLowerCase())
     );
@@ -105,6 +116,10 @@ const Dashboard = ({ playSong, onNavigateToPlaylists, onNavigateToArtist }) => {
 
   // Get recently added songs (top 10 by release date)
   const getRecentlyAddedSongs = () => {
+    if (songIndexFlatLoading || !songIndexFlat) {
+      return [];
+    }
+    
     return [...songIndexFlat]
       .sort((a, b) => new Date(b.releaseDate) - new Date(a.releaseDate))
       .slice(0, 10);
@@ -112,7 +127,11 @@ const Dashboard = ({ playSong, onNavigateToPlaylists, onNavigateToArtist }) => {
 
   // Calculate newest artists based on their first release date
   const getNewestArtists = () => {
-    const artistsWithFirstReleaseDate = artistsData.map(artist => {
+    if (artistsLoading || !artists || songIndexFlatLoading || !songIndexFlat) {
+      return [];
+    }
+    
+    const artistsWithFirstReleaseDate = artists.map(artist => {
       // Find all songs by this artist
       const artistSongs = songIndexFlat.filter(song => song.artistId === artist.id);
       
@@ -144,8 +163,8 @@ const Dashboard = ({ playSong, onNavigateToPlaylists, onNavigateToArtist }) => {
         }
       }}
     >
-      <Image 
-        source={{ uri: getSongCoverArt(item) }} 
+      <CachedImage 
+        source={{ uri: getSongCoverArt(item, artists) }} 
         style={styles.songCover}
       />
       <View style={styles.songInfo}>
@@ -168,8 +187,8 @@ const Dashboard = ({ playSong, onNavigateToPlaylists, onNavigateToArtist }) => {
         }
       }}
     >
-      <Image 
-        source={{ uri: getSongCoverArt(item) }} 
+      <CachedImage 
+        source={{ uri: getSongCoverArt(item, artists) }} 
         style={styles.recentCover}
       />
       <View style={styles.recentInfo}>
@@ -183,18 +202,63 @@ const Dashboard = ({ playSong, onNavigateToPlaylists, onNavigateToArtist }) => {
     </TouchableOpacity>
   );
 
+  // Helper function to format songs from songIndexFlat for playback
+  const formatSongForPlayback = (song) => {
+    if (!song) return null;
+    
+    // Find the artist
+    const artist = artists.find(a => a.id === song.artistId);
+    let coverArt = song.coverArt;
+    let albumName = song.album;
+    
+    if (artist) {
+      // For album tracks, get cover art from album
+      if (song.type === 'album' && song.albumId && artist.albums) {
+        const album = artist.albums.find(a => a.id === song.albumId);
+        if (album) {
+          coverArt = album.coverArt;
+          albumName = album.name;
+        }
+      }
+      
+      // For singles, get cover art from single
+      if (song.type === 'single' && artist.singles) {
+        const single = artist.singles.find(s => s.id === song.id);
+        if (single) {
+          coverArt = single.coverArt;
+        }
+      }
+    }
+    
+    return {
+      id: song.id,
+      title: song.title,
+      name: song.title,
+      artist: song.artist,
+      album: albumName,
+      coverArt: coverArt,
+      audio: song.audio,
+      lyrics: song.lyrics,
+      credits: song.credits,
+      type: song.type,
+      releaseDate: song.releaseDate,
+      genre: song.genre
+    };
+  };
+
   // Render catalog song item
   const renderCatalogSongItem = ({ item }) => (
     <TouchableOpacity 
       style={styles.catalogSongItem}
       onPress={() => {
         if (playSong) {
-          playSong(item, songIndexFlat, songIndexFlat.findIndex(s => s.id === item.id));
+          const formattedSongs = songIndexFlat.map(formatSongForPlayback);
+          playSong(formatSongForPlayback(item), formattedSongs, formattedSongs.findIndex(s => s.id === item.id));
         }
       }}
     >
-      <Image 
-        source={{ uri: getSongCoverArt(item) }} 
+      <CachedImage 
+        source={{ uri: getSongCoverArt(item, artists) }} 
         style={styles.catalogSongCover}
       />
       <View style={styles.catalogSongInfo}>
@@ -237,6 +301,7 @@ const Dashboard = ({ playSong, onNavigateToPlaylists, onNavigateToArtist }) => {
         showsVerticalScrollIndicator={false}
         stickySectionHeadersEnabled={true}
         style={styles.catalogList}
+        contentContainerStyle={styles.catalogListContent}
       />
     </View>
   );
@@ -265,15 +330,16 @@ const Dashboard = ({ playSong, onNavigateToPlaylists, onNavigateToArtist }) => {
               style={styles.recentlyAddedSongItem}
               onPress={() => {
                 if (playSong) {
-                  playSong(item, recentlyAddedSongs, index);
+                  const formattedSongs = recentlyAddedSongs.map(formatSongForPlayback);
+                  playSong(formatSongForPlayback(item), formattedSongs, index);
                 }
               }}
             >
               <View style={styles.rankContainer}>
                 <Text style={styles.rankNumber}>{index + 1}</Text>
               </View>
-              <Image 
-                source={{ uri: getSongCoverArt(item) }} 
+              <CachedImage 
+                source={{ uri: getSongCoverArt(item, artists) }} 
                 style={styles.catalogSongCover}
               />
               <View style={styles.catalogSongInfo}>
@@ -292,6 +358,7 @@ const Dashboard = ({ playSong, onNavigateToPlaylists, onNavigateToArtist }) => {
           keyExtractor={(item) => item.id.toString()}
           showsVerticalScrollIndicator={false}
           style={styles.catalogList}
+          contentContainerStyle={styles.catalogListContent}
         />
       </View>
     );
@@ -328,7 +395,7 @@ const Dashboard = ({ playSong, onNavigateToPlaylists, onNavigateToArtist }) => {
             activeOpacity={0.8}
           >
             <Text style={styles.spotlightLabel}>Artist Spotlight</Text>
-            <Image 
+            <CachedImage 
               source={{ uri: spotlightArtist.image }} 
               style={styles.spotlightImage}
             />
@@ -360,7 +427,7 @@ const Dashboard = ({ playSong, onNavigateToPlaylists, onNavigateToArtist }) => {
                 <View style={styles.nextArtistRank}>
                   <Text style={styles.nextArtistRankNumber}>{index + 2}</Text>
                 </View>
-                <Image 
+                <CachedImage 
                   source={{ uri: artist.image }} 
                   style={styles.nextArtistImage}
                 />
@@ -383,7 +450,7 @@ const Dashboard = ({ playSong, onNavigateToPlaylists, onNavigateToArtist }) => {
     );
   };
 
-  if (isLoading) {
+  if (isLoading || songIndexFlatLoading || artistsLoading) {
     return (
       <View style={styles.loadingContainer}>
         <Text style={styles.loadingText}>Loading...</Text>
@@ -470,9 +537,19 @@ const Dashboard = ({ playSong, onNavigateToPlaylists, onNavigateToArtist }) => {
           </View>
           
           <FlatList
-            data={recentPlays.slice(0, 5)} // Show only first 5
+            data={(() => {
+              // Remove duplicates by song ID, keeping the most recent occurrence
+              const seen = new Set();
+              return recentPlays.filter(song => {
+                if (seen.has(song.id)) {
+                  return false;
+                }
+                seen.add(song.id);
+                return true;
+              }).slice(0, 5); // Show only first 5 unique songs
+            })()}
             renderItem={renderRecentItem}
-            keyExtractor={(item, index) => `${item.id}_${index}`}
+            keyExtractor={(item) => item.id.toString()}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.recentList}
@@ -483,7 +560,7 @@ const Dashboard = ({ playSong, onNavigateToPlaylists, onNavigateToArtist }) => {
       {/* Quick Access Section */}
       <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
         <View style={styles.sectionHeader}>
-          <Image 
+          <CachedImage 
             source={require('../../assets/rbmLogo.png')} 
             style={styles.headerLogo}
             resizeMode="contain"
@@ -713,6 +790,9 @@ const styles = StyleSheet.create({
   },
   catalogList: {
     flex: 1,
+  },
+  catalogListContent: {
+    paddingBottom: 100,
   },
   catalogSectionHeader: {
     backgroundColor: palette.secondary,

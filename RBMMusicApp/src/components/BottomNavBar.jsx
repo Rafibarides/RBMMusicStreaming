@@ -10,37 +10,22 @@ const BottomNavBar = memo(({ activeTab, onTabPress }) => {
     { name: 'Playlists', icon: 'music' },
   ];
 
-  console.log('BottomNavBar: Rendering with activeTab:', activeTab);
-
   const handleTabPress = useCallback((tabName) => {
-    console.log('BottomNavBar: Tab button pressed:', tabName);
-    console.log('BottomNavBar: onTabPress function available:', typeof onTabPress);
-    
     if (onTabPress && typeof onTabPress === 'function') {
-      console.log('BottomNavBar: Calling onTabPress with:', tabName);
       onTabPress(tabName);
-    } else {
-      console.warn('BottomNavBar: onTabPress is not a function!', onTabPress);
     }
   }, [onTabPress]);
 
   const TabButton = memo(({ tab, isActive }) => {
-    console.log(`BottomNavBar: Rendering TabButton for ${tab.name}, active: ${isActive}`);
-    
     return (
       <TouchableOpacity 
         style={styles.tabButton} 
-        onPress={() => {
-          console.log(`BottomNavBar: TouchableOpacity pressed for ${tab.name}`);
-          handleTabPress(tab.name);
-        }}
+        onPress={() => handleTabPress(tab.name)}
         activeOpacity={0.6}
         hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
         accessible={true}
         accessibilityLabel={`${tab.name} tab`}
         accessibilityRole="button"
-        onPressIn={() => console.log(`BottomNavBar: Press IN for ${tab.name}`)}
-        onPressOut={() => console.log(`BottomNavBar: Press OUT for ${tab.name}`)}
       >
         <FontAwesome 
           name={tab.icon} 

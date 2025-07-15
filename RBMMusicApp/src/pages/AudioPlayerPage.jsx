@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   TouchableOpacity,
   Dimensions,
   ScrollView,
@@ -24,7 +23,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { palette } from '../utils/Colors';
-import artistsData from '../json/artists.json';
+import CachedImage from '../components/CachedImage';
 
 import { useMusicData } from '../contexts/MusicDataContext';
 
@@ -66,7 +65,7 @@ const AudioPlayerPage = ({
   const previousSecondRef = useRef(-1);
 
   // Music data context
-  const { toggleLikeSong, isSongLiked, createPlaylist: createPlaylistContext, addSongToPlaylist: addSongToPlaylistContext, playlists: contextPlaylists } = useMusicData();
+  const { toggleLikeSong, isSongLiked, createPlaylist: createPlaylistContext, addSongToPlaylist: addSongToPlaylistContext, playlists: contextPlaylists, artists: contextArtists } = useMusicData();
 
 
 
@@ -236,7 +235,7 @@ const AudioPlayerPage = ({
   };
 
   const handleArtistPress = () => {
-    const artist = artistsData.find(a => a.name === song.artist);
+    const artist = contextArtists.find(a => a.name === song.artist);
     if (artist && onNavigateToArtist) {
       onNavigateToArtist(artist);
     }
@@ -305,7 +304,7 @@ const AudioPlayerPage = ({
           <Animated.View style={[styles.container, animatedStyle]}>
             {/* Background Gradient with Cover Art */}
             <View style={styles.backgroundGradient}>
-              <Image 
+              <CachedImage 
                 source={{ uri: song.coverArt }} 
                 style={styles.backgroundImage}
                 resizeMode="cover"
@@ -350,7 +349,7 @@ const AudioPlayerPage = ({
 
               {/* Album Art */}
               <View style={styles.artworkContainer}>
-                <Image 
+                <CachedImage 
                   source={{ uri: song.coverArt }} 
                   style={styles.artwork}
                   resizeMode="cover"
@@ -582,7 +581,7 @@ const AudioPlayerPage = ({
           
           <ScrollView style={styles.modalContent}>
             <View style={styles.songInfoSection}>
-              <Image 
+              <CachedImage 
                 source={{ uri: song.coverArt }} 
                 style={styles.modalSongCover}
               />
@@ -637,7 +636,7 @@ const AudioPlayerPage = ({
           
           <ScrollView style={styles.modalContent}>
             <View style={styles.songInfoSection}>
-              <Image 
+              <CachedImage 
                 source={{ uri: song.coverArt }} 
                 style={styles.modalSongCover}
               />

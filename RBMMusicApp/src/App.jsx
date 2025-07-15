@@ -3,11 +3,13 @@ import { View, StyleSheet, Alert, AppState, Modal, Text, TouchableOpacity } from
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Audio } from 'expo-av';
+import { FontAwesome } from '@expo/vector-icons';
 
 // Import screens
 import Dashboard from './screens/Dashboard';
 import Search from './screens/Search';
 import Playlists from './screens/Playlists';
+import ArtistPage from './pages/ArtistPage';
 
 // Import pages
 import AudioPlayerPage from './pages/AudioPlayerPage';
@@ -19,16 +21,22 @@ import MinimizedPlayer from './components/MinimizedPlayer';
 // Import contexts
 import { MusicDataProvider, useMusicData } from './contexts/MusicDataContext';
 
-// Import colors
-import { palette } from './utils/Colors';
+// Import services
+import StorageService from './services/StorageService';
+import cacheManager from './services/CacheManager';
 
-// Import JSON data for queue management
-import songIndexFlat from './json/songIndexFlat.json';
-import artistsData from './json/artists.json';
+// Import utils
+import { palette } from './utils/Colors';
 
 // Main App component that uses the context
 const AppContent = () => {
-  const { addToRecentPlays } = useMusicData();
+  const { 
+    artists, 
+    artistsLoading, 
+    songIndexFlat, 
+    songIndexFlatLoading, 
+    addToRecentPlays
+  } = useMusicData();
   const [activeTab, setActiveTab] = useState('Dashboard');
   
   // Search state that persists across tab switches
@@ -58,6 +66,7 @@ const AppContent = () => {
     shuffleIndex: 0, // Track position in shuffled queue
     shufflePlayedSongs: [], // Track songs already played in shuffle
     playHistory: [], // Track recently played songs to avoid repeats
+    catalogPlayHistory: [], // Track songs from entire catalog to ensure all are played before repeating
     isNavigating: false // Prevent multiple concurrent next/previous calls
   });
 
@@ -82,6 +91,9 @@ const AppContent = () => {
   // Stable refs for callbacks
   const searchStateRef = useRef(searchState);
   const resetSearchNavigationRef = useRef();
+  
+  // Video stop callback system
+  const stopVideoCallback = useRef(null);
 
   // Update refs when state changes
   useEffect(() => {
@@ -158,6 +170,9 @@ const AppContent = () => {
 
     const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
 
+    // Initialize cache manager
+    cacheManager.initialize();
+
     // Cleanup on unmount
     return () => {
       if (sound.current) {
@@ -231,6 +246,9 @@ const AppContent = () => {
         return;
       }
 
+      console.log(`🎵 Loading audio for: "${songToLoad.title}" by ${songToLoad.artist}`);
+      console.log(`🔗 Audio URL: ${songToLoad.audio}`);
+      
       // Load new sound with background playback optimizations
       const { sound: newSound } = await Audio.Sound.createAsync(
         { uri: songToLoad.audio },
@@ -308,15 +326,34 @@ const AppContent = () => {
       }, 100);
 
     } catch (error) {
-      console.error('Error loading audio:', error);
+      console.error(`❌ Error loading audio for "${songToLoad?.title}" by ${songToLoad?.artist}:`, error);
+      console.error(`🔗 Failed URL: ${songToLoad?.audio}`);
+      
+      // Provide specific error information for debugging
+      if (error.message.includes('-1100')) {
+        console.error('🚨 ERROR -1100: Audio file does not exist at the specified URL');
+        console.error('💡 This usually means:');
+        console.error('   1. The audio URL is broken or invalid');
+        console.error('   2. The file was moved or deleted from the server');
+        console.error('   3. Network connectivity issues');
+        console.error('   4. Server-side issues');
+      }
+      
       setAudioState(prev => ({ ...prev, isLoading: false }));
-      Alert.alert('Error', 'Failed to load audio');
+      Alert.alert('Audio Error', `Failed to load "${songToLoad?.title}"\n\nCheck console for details.`);
     } finally {
       isLoadingAudioRef.current = false;
     }
   };
 
   const togglePlayPause = async () => {
+    // If no sound loaded but we have a current song, reload the audio
+    if (!sound.current && audioState.currentSong) {
+      console.log('🔄 Reloading audio after video playback...');
+      await loadAudio();
+      return;
+    }
+
     if (!sound.current) return;
 
     try {
@@ -394,6 +431,7 @@ const AppContent = () => {
           currentSong: nextSong.song,
           currentIndex: nextSong.index,
           playHistory: [prev.currentSong?.id, ...prev.playHistory.slice(0, 9)],
+          catalogPlayHistory: [...prev.catalogPlayHistory, prev.currentSong?.id].filter(Boolean),
           isPlaying: false,
           position: 0,
           isRepeating: false // Turn off repeat when manually skipping
@@ -476,7 +514,7 @@ const AppContent = () => {
     }
   };
 
-  const getNextSong = () => {
+    const getNextSong = () => {
     // If repeat is on, return the current song
     if (audioState.isRepeating && audioState.currentSong) {
       return {
@@ -510,11 +548,8 @@ const AppContent = () => {
           // Use current queue (e.g., album songs)
           songsToShuffle = audioState.queue;
         } else {
-          // Fall back to all artist songs if no queue
-          const artist = artistsData.find(a => a.name === audioState.currentSong.artist);
-          if (artist) {
-            songsToShuffle = getArtistSongs(artist);
-          }
+          // Use entire catalog for shuffle
+          songsToShuffle = [...songIndexFlat];
         }
         
         if (songsToShuffle.length > 0) {
@@ -536,7 +571,7 @@ const AppContent = () => {
       }
     }
 
-    // If there's a queue and we're not at the end (only if not shuffling)
+    // ALBUM PLAYBACK: If there's a queue (album) and we're not at the end, play next in order
     if (audioState.queue.length > 0 && audioState.currentIndex < audioState.queue.length - 1) {
       return {
         song: audioState.queue[audioState.currentIndex + 1],
@@ -544,65 +579,82 @@ const AppContent = () => {
       };
     }
     
-    // If we're at the end of queue or no queue, get next from artist's discography
-    const artist = artistsData.find(a => a.name === audioState.currentSong.artist);
+    // CATALOG PLAYBACK: Either no queue or at end of album - pick randomly from entire catalog
+    if (songIndexFlatLoading || !songIndexFlat || songIndexFlat.length === 0) {
+      return null; // No songs available
+    }
+
+    // Get current catalog play history
+    const catalogHistory = audioState.catalogPlayHistory || [];
+    const currentSongId = audioState.currentSong?.id;
+    
+    // Check if we've played all songs in the catalog (reset if so)
+    let availableSongs = songIndexFlat.filter(song => 
+      !catalogHistory.includes(song.id) && song.id !== currentSongId
+    );
+    
+    // If all songs have been played, reset catalog history and start over
+    if (availableSongs.length === 0) {
+      console.log('🔄 All catalog songs played - resetting catalog history');
+      availableSongs = songIndexFlat.filter(song => song.id !== currentSongId);
+      
+      // Reset catalog history in state
+      setAudioState(prev => ({ 
+        ...prev, 
+        catalogPlayHistory: []
+      }));
+    }
+    
+    // If still no available songs (edge case), just pick any song
+    if (availableSongs.length === 0) {
+      availableSongs = [...songIndexFlat];
+    }
+    
+    // Pick a random song from available options
+    const randomIndex = Math.floor(Math.random() * availableSongs.length);
+    const randomSong = availableSongs[randomIndex];
+    
+    // Convert songIndexFlat item to proper song format with cover art
+    const artist = artists.find(a => a.id === randomSong.artistId);
+    let coverArt = randomSong.coverArt;
+    let albumName = randomSong.album;
+    
     if (artist) {
-      const artistSongs = getArtistSongs(artist);
-
-      // Filter out recently played songs to avoid repeats
-      const recentlyPlayedIds = audioState.playHistory || [];
-      const nonRecentSongs = artistSongs.filter(song => 
-        !recentlyPlayedIds.includes(song.id) && song.id !== audioState.currentSong?.id
-      );
-
-      // If we have non-recent songs, pick from those
-      if (nonRecentSongs.length > 0) {
-        const nextSong = nonRecentSongs[0];
-        return {
-          song: nextSong,
-          index: 0
-        };
+      // For album tracks, get cover art from album
+      if (randomSong.type === 'album' && randomSong.albumId && artist.albums) {
+        const album = artist.albums.find(a => a.id === randomSong.albumId);
+        if (album) {
+          coverArt = album.coverArt;
+          albumName = album.name;
+        }
       }
-
-      // If all songs are recent, pick next song in artist catalog
-      const currentSongIndex = artistSongs.findIndex(s => s.id === audioState.currentSong.id);
-      if (currentSongIndex >= 0 && currentSongIndex < artistSongs.length - 1) {
-        return {
-          song: artistSongs[currentSongIndex + 1],
-          index: 0
-        };
-      }
-
-      // If at end of artist songs, start from beginning
-      if (artistSongs.length > 1) {
-        return {
-          song: artistSongs[0],
-          index: 0
-        };
+      
+      // For singles, get cover art from single
+      if (randomSong.type === 'single' && artist.singles) {
+        const single = artist.singles.find(s => s.id === randomSong.id);
+        if (single) {
+          coverArt = single.coverArt;
+        }
       }
     }
     
-    // If no next song from artist, pick random from songIndexFlat (avoiding recent plays)
-    const recentlyPlayedIds = audioState.playHistory || [];
-    const availableSongs = songIndexFlat.filter(song => 
-      !recentlyPlayedIds.includes(song.id) && song.id !== audioState.currentSong?.id
-    );
-
-    if (availableSongs.length > 0) {
-      const randomIndex = Math.floor(Math.random() * availableSongs.length);
-      const randomSong = availableSongs[randomIndex];
-      return {
-        song: randomSong,
-        index: 0
-      };
-    }
-
-    // Fallback: pick any random song if all are recent
-    const randomIndex = Math.floor(Math.random() * songIndexFlat.length);
-    const randomSong = songIndexFlat[randomIndex];
+    const formattedSong = {
+      id: randomSong.id,
+      title: randomSong.title,
+      artist: randomSong.artist,
+      album: albumName,
+      coverArt: coverArt,
+      audio: randomSong.audio,
+      lyrics: randomSong.lyrics,
+      credits: randomSong.credits,
+      type: randomSong.type,
+      releaseDate: randomSong.releaseDate,
+      genre: randomSong.genre
+    };
+    
     return {
-      song: randomSong,
-      index: 0
+      song: formattedSong,
+      index: 0 // Reset index since we're not in a queue anymore
     };
   };
 
@@ -647,7 +699,7 @@ const AppContent = () => {
     }
     
     // If we're at the beginning of queue or no queue, get previous from artist's discography
-    const artist = artistsData.find(a => a.name === audioState.currentSong.artist);
+    const artist = artists.find(a => a.name === audioState.currentSong.artist);
     if (artist) {
       const artistSongs = getArtistSongs(artist);
 
@@ -691,6 +743,10 @@ const AppContent = () => {
   };
 
   const getArtistSongs = (artist) => {
+    if (songIndexFlatLoading || !songIndexFlat) {
+      return [];
+    }
+    
     const songs = [];
     
     // Get all songs by this artist from songIndexFlat
@@ -736,12 +792,21 @@ const AppContent = () => {
   };
 
   const playSong = (song, queue = [], index = 0) => {
+    // Stop any playing video when music starts
+    if (stopVideoCallback.current) {
+      console.log('🎵 Starting music - stopping any playing video');
+      stopVideoCallback.current();
+    }
+    
     setAudioState(prev => ({
       ...prev,
       currentSong: song,
       showFullPlayer: false,
       queue,
-      currentIndex: index
+      currentIndex: index,
+      // Reset catalog history when starting a new album (when queue is provided)
+      // This ensures album playback doesn't interfere with catalog tracking
+      catalogPlayHistory: queue.length > 0 ? [] : prev.catalogPlayHistory
     }));
     
     // Add to recent plays
@@ -756,6 +821,15 @@ const AppContent = () => {
 
   const closeFullPlayer = () => {
     setAudioState(prevState => ({ ...prevState, showFullPlayer: false }));
+  };
+
+  // Video stop callback management
+  const registerVideoStopCallback = (callback) => {
+    stopVideoCallback.current = callback;
+  };
+
+  const unregisterVideoStopCallback = () => {
+    stopVideoCallback.current = null;
   };
 
   const closeMiniPlayer = async () => {
@@ -787,7 +861,8 @@ const AppContent = () => {
         isRepeating: false,
         isShuffled: false,
         shuffledQueue: [],
-        playHistory: []
+        playHistory: [],
+        catalogPlayHistory: []
       }));
     } catch (error) {
       console.error('Error closing mini player:', error);
@@ -796,6 +871,9 @@ const AppContent = () => {
 
   const stopAudio = async () => {
     try {
+      // CRITICAL: Cancel any pending audio loads by incrementing token
+      currentLoadingToken.current++;
+      
       // Stop and unload the current audio
       if (sound.current) {
         await sound.current.stopAsync();
@@ -808,6 +886,11 @@ const AppContent = () => {
         clearInterval(progressInterval.current);
         progressInterval.current = null;
       }
+      
+      // Reset loading states and navigation locks
+      isLoadingAudioRef.current = false;
+      navigationLock.current = false;
+      isNavigatingRef.current = false;
       
       // Reset audio state but keep the current song info (just stop playing)
       setAudioState(prevState => ({ 
@@ -857,7 +940,7 @@ const AppContent = () => {
           songsToShuffle = prev.queue;
         } else {
           // Fall back to all artist songs if no queue
-          const artist = artistsData.find(a => a.name === prev.currentSong.artist);
+          const artist = artists.find(a => a.name === prev.currentSong.artist);
           if (artist) {
             songsToShuffle = getArtistSongs(artist);
           }
@@ -949,6 +1032,8 @@ const AppContent = () => {
             resetSearchNavigation={resetSearchNavigation}
             playSong={playSong}
             onStopAudio={stopAudio}
+            onRegisterVideoStopCallback={registerVideoStopCallback}
+            onUnregisterVideoStopCallback={unregisterVideoStopCallback}
           />
         );
       case 'Playlists':
@@ -979,6 +1064,8 @@ const AppContent = () => {
       <SafeAreaView style={styles.container}>
         <StatusBar style="light" backgroundColor={palette.background} />
         
+
+
         <View style={styles.screenContainer}>
           {renderScreen()}
         </View>
@@ -1050,5 +1137,6 @@ const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
   },
+
 
 });

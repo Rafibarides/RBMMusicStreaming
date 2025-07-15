@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import StorageService from '../services/StorageService';
+import cacheManager from '../services/CacheManager';
 
 const MusicDataContext = createContext();
 
@@ -12,18 +13,129 @@ export const useMusicData = () => {
 };
 
 export const MusicDataProvider = ({ children }) => {
+  // State for remote data
+  const [forYouPlaylist, setForYouPlaylist] = useState([]);
+  const [forYouPlaylistLoading, setForYouPlaylistLoading] = useState(true);
+  const [videoIndexFlat, setVideoIndexFlat] = useState([]);
+  const [videoIndexFlatLoading, setVideoIndexFlatLoading] = useState(true);
+  const [artists, setArtists] = useState([]);
+  const [artistsLoading, setArtistsLoading] = useState(true);
+  const [songIndexFlat, setSongIndexFlat] = useState([]);
+  const [songIndexFlatLoading, setSongIndexFlatLoading] = useState(true);
   const [likedSongs, setLikedSongs] = useState([]);
   const [playlists, setPlaylists] = useState([]);
   const [recentPlays, setRecentPlays] = useState([]);
-  const [forYouPlaylist, setForYouPlaylist] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [forYouPlaylistLoading, setForYouPlaylistLoading] = useState(true);
+  
+  // CRITICAL: Cache ready state to prevent loading flashes
+  const [cacheReady, setCacheReady] = useState(false);
 
-  // Load data on app start
+  // Initialize cache manager early and wait for it to be ready
+  useEffect(() => {
+    const initializeCache = async () => {
+      try {
+        await cacheManager.initialize();
+        setCacheReady(true);
+        console.log('🚀 Cache manager ready for instant image loading');
+      } catch (error) {
+        console.error('❌ Failed to initialize cache manager:', error);
+        // Even if cache fails, allow app to continue
+        setCacheReady(true);
+      }
+    };
+
+    initializeCache();
+  }, []);
+
+  // Load remote data
   useEffect(() => {
     loadAllData();
     loadForYouPlaylist();
+    loadVideoIndexFlat();
+    loadArtists();
+    loadSongIndexFlat();
   }, []);
+
+  // Background preload artist images for instant loading
+  useEffect(() => {
+    if (!artistsLoading && artists.length > 0) {
+      // Run background preloading after a short delay to not block initial UI
+      const preloadTimeout = setTimeout(() => {
+        preloadArtistImages();
+      }, 2000);
+
+      return () => clearTimeout(preloadTimeout);
+    }
+  }, [artists, artistsLoading]);
+
+  // Background preload cover art for instant loading  
+  useEffect(() => {
+    if (!artistsLoading && !songIndexFlatLoading && artists.length > 0 && songIndexFlat.length > 0) {
+      // Run background preloading after artist images with lower priority
+      const preloadTimeout = setTimeout(() => {
+        preloadCoverArt();
+      }, 5000);
+
+      return () => clearTimeout(preloadTimeout);
+    }
+  }, [artists, artistsLoading, songIndexFlat, songIndexFlatLoading]);
+
+  const preloadArtistImages = async () => {
+    try {
+      // Collect all artist image URLs
+      const artistImageUrls = artists
+        .map(artist => artist.image)
+        .filter(url => url); // Remove any null/undefined URLs
+
+      // Use the new robust caching system
+      await cacheManager.preloadImages(artistImageUrls);
+
+    } catch (error) {
+      console.error('💥 Error preloading artist images:', error);
+    }
+  };
+
+  const preloadCoverArt = async () => {
+    try {
+      // Collect all unique cover art URLs with priority for most used images
+      const coverArtUrls = new Set();
+
+      artists.forEach(artist => {
+        // Album cover art (higher priority - shown in many places)
+        if (artist.albums) {
+          artist.albums.forEach(album => {
+            if (album.coverArt) {
+              coverArtUrls.add(album.coverArt);
+            }
+          });
+        }
+        
+        // Single cover art (medium priority)
+        if (artist.singles) {
+          artist.singles.forEach(single => {
+            if (single.coverArt) {
+              coverArtUrls.add(single.coverArt);
+            }
+          });
+        }
+      });
+
+      // Also collect from songIndexFlat for any direct coverArt properties
+      songIndexFlat.forEach(song => {
+        if (song.coverArt) {
+          coverArtUrls.add(song.coverArt);
+        }
+      });
+
+      const uniqueUrls = Array.from(coverArtUrls);
+
+      // Use the new robust caching system
+      await cacheManager.preloadImages(uniqueUrls);
+
+    } catch (error) {
+      console.error('💥 Error preloading cover art:', error);
+    }
+  };
 
   const loadAllData = async () => {
     setIsLoading(true);
@@ -47,26 +159,92 @@ export const MusicDataProvider = ({ children }) => {
   const loadForYouPlaylist = async () => {
     setForYouPlaylistLoading(true);
     try {
-      const response = await fetch('https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/jsonMaster/forYouPlaylist.json');
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
+      const url = 'https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/jsonMaster/forYouPlaylist.json';
+      const data = await cacheManager.cacheJson(url);
       setForYouPlaylist(data);
-      console.log('Successfully loaded forYouPlaylist from remote URL');
+      console.log('✅ Successfully loaded forYouPlaylist from cache/remote');
     } catch (error) {
-      console.error('Error loading forYouPlaylist from remote URL:', error);
+      console.error('❌ Error loading forYouPlaylist:', error);
       // Fallback to local data if remote fails
       try {
         const localData = require('../json/forYouPlaylist.json');
         setForYouPlaylist(localData);
-        console.log('Fallback: loaded forYouPlaylist from local file');
+        console.log('🔄 Fallback: loaded forYouPlaylist from local file');
       } catch (localError) {
-        console.error('Error loading local forYouPlaylist:', localError);
+        console.error('❌ Error loading local forYouPlaylist:', localError);
         setForYouPlaylist([]);
       }
     } finally {
       setForYouPlaylistLoading(false);
+    }
+  };
+
+  const loadVideoIndexFlat = async () => {
+    setVideoIndexFlatLoading(true);
+    try {
+      const url = 'https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/jsonMaster/videoIndexFlat.json';
+      const data = await cacheManager.cacheJson(url);
+      setVideoIndexFlat(data);
+      console.log('✅ Successfully loaded videoIndexFlat from cache/remote');
+    } catch (error) {
+      console.error('❌ Error loading videoIndexFlat:', error);
+      // Fallback to local data if remote fails
+      try {
+        const localData = require('../json/videoIndexFlat.json');
+        setVideoIndexFlat(localData);
+        console.log('🔄 Fallback: loaded videoIndexFlat from local file');
+      } catch (localError) {
+        console.error('❌ Error loading local videoIndexFlat:', localError);
+        setVideoIndexFlat([]);
+      }
+    } finally {
+      setVideoIndexFlatLoading(false);
+    }
+  };
+
+  const loadArtists = async () => {
+    setArtistsLoading(true);
+    try {
+      const url = 'https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/jsonMaster/artists.json';
+      const data = await cacheManager.cacheJson(url);
+      setArtists(data);
+      console.log('✅ Successfully loaded artists from cache/remote');
+    } catch (error) {
+      console.error('❌ Error loading artists:', error);
+      // Fallback to local data if remote fails
+      try {
+        const localData = require('../json/artists.json');
+        setArtists(localData);
+        console.log('🔄 Fallback: loaded artists from local file');
+      } catch (localError) {
+        console.error('❌ Error loading local artists:', localError);
+        setArtists([]);
+      }
+    } finally {
+      setArtistsLoading(false);
+    }
+  };
+
+  const loadSongIndexFlat = async () => {
+    setSongIndexFlatLoading(true);
+    try {
+      const url = 'https://pub-a2d61889013a43e69563a1bbccaed58c.r2.dev/jsonMaster/songIndexFlat.json';
+      const data = await cacheManager.cacheJson(url);
+      setSongIndexFlat(data);
+      console.log('✅ Successfully loaded songIndexFlat from cache/remote');
+    } catch (error) {
+      console.error('❌ Error loading songIndexFlat:', error);
+      // Fallback to local data if remote fails
+      try {
+        const localData = require('../json/songIndexFlat.json');
+        setSongIndexFlat(localData);
+        console.log('🔄 Fallback: loaded songIndexFlat from local file');
+      } catch (localError) {
+        console.error('❌ Error loading local songIndexFlat:', localError);
+        setSongIndexFlat([]);
+      }
+    } finally {
+      setSongIndexFlatLoading(false);
     }
   };
 
@@ -222,14 +400,33 @@ export const MusicDataProvider = ({ children }) => {
     await loadForYouPlaylist();
   };
 
+  const refreshVideoIndexFlat = async () => {
+    await loadVideoIndexFlat();
+  };
+
+  const refreshArtists = async () => {
+    await loadArtists();
+  };
+
+  const refreshSongIndexFlat = async () => {
+    await loadSongIndexFlat();
+  };
+
   const value = {
     // State
     likedSongs,
     playlists,
     recentPlays,
     forYouPlaylist,
+    videoIndexFlat,
+    artists,
+    songIndexFlat,
     isLoading,
     forYouPlaylistLoading,
+    videoIndexFlatLoading,
+    artistsLoading,
+    songIndexFlatLoading,
+    cacheReady, // Add cacheReady to the context value
     
     // Liked Songs
     toggleLikeSong,
@@ -250,6 +447,9 @@ export const MusicDataProvider = ({ children }) => {
     clearAllData,
     refreshData,
     refreshForYouPlaylist,
+    refreshVideoIndexFlat,
+    refreshArtists,
+    refreshSongIndexFlat,
   };
 
   return (

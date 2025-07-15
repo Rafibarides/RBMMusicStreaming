@@ -12,10 +12,10 @@ import {
 import { FontAwesome } from '@expo/vector-icons';
 import { palette } from '../utils/Colors';
 import { useMusicData } from '../contexts/MusicDataContext';
-import artistsData from '../json/artists.json';
+import CachedImage from '../components/CachedImage';
 
 // Helper function to get cover art for a song
-const getSongCoverArt = (song) => {
+const getSongCoverArt = (song, artists) => {
   if (!song) return null;
   
   // If song already has coverArt (for backward compatibility), use it
@@ -24,7 +24,7 @@ const getSongCoverArt = (song) => {
   }
 
   // Find the artist
-  const artist = artistsData.find(a => a.id === song.artistId);
+  const artist = artists.find(a => a.id === song.artistId);
   if (!artist) {
     console.log(`Artist not found for song: ${song.title}, artistId: ${song.artistId}`);
     return null;
@@ -61,7 +61,7 @@ const getSongCoverArt = (song) => {
 };
 
 // Collage Artwork Component
-const CollageArtwork = ({ songs, size = 60 }) => {
+const CollageArtwork = ({ songs, size = 60, artists }) => {
   // Take first 4 songs for the collage
   const collageImages = songs.slice(0, 4);
   const imageSize = size / 2;
@@ -70,31 +70,31 @@ const CollageArtwork = ({ songs, size = 60 }) => {
     <View style={[styles.collageContainer, { width: size, height: size }]}>
       {/* Top row */}
       <View style={styles.collageRow}>
-        <Image 
-          source={{ uri: getSongCoverArt(collageImages[0]) }} 
+        <CachedImage 
+          source={{ uri: getSongCoverArt(collageImages[0], artists) }} 
           style={[styles.collageImage, { width: imageSize, height: imageSize }]}
         />
-        <Image 
-          source={{ uri: getSongCoverArt(collageImages[1]) }} 
+        <CachedImage 
+          source={{ uri: getSongCoverArt(collageImages[1], artists) }} 
           style={[styles.collageImage, { width: imageSize, height: imageSize }]}
         />
       </View>
       
       {/* Bottom row */}
       <View style={styles.collageRow}>
-        <Image 
-          source={{ uri: getSongCoverArt(collageImages[2]) }} 
+        <CachedImage 
+          source={{ uri: getSongCoverArt(collageImages[2], artists) }} 
           style={[styles.collageImage, { width: imageSize, height: imageSize }]}
         />
-        <Image 
-          source={{ uri: getSongCoverArt(collageImages[3]) }} 
+        <CachedImage 
+          source={{ uri: getSongCoverArt(collageImages[3], artists) }} 
           style={[styles.collageImage, { width: imageSize, height: imageSize }]}
         />
       </View>
       
       {/* RBM Logo in bottom right */}
       <View style={[styles.logoContainer, { width: imageSize * 0.6, height: imageSize * 0.6 }]}>
-        <Image 
+        <CachedImage 
           source={require('../../assets/rbmLogo.png')} 
           style={styles.logoImage}
           resizeMode="contain"
@@ -105,7 +105,7 @@ const CollageArtwork = ({ songs, size = 60 }) => {
 };
 
 const Playlists = ({ playSong, initialPlaylistId, onClearInitialPlaylist }) => {
-  const { playlists, likedSongs, forYouPlaylist, forYouPlaylistLoading, deletePlaylist, toggleLikeSong, isLoading } = useMusicData();
+  const { playlists, likedSongs, forYouPlaylist, forYouPlaylistLoading, deletePlaylist, toggleLikeSong, isLoading, artists } = useMusicData();
   const [selectedPlaylist, setSelectedPlaylist] = useState(null);
 
   // Create liked songs playlist
@@ -113,7 +113,7 @@ const Playlists = ({ playSong, initialPlaylistId, onClearInitialPlaylist }) => {
     id: 'liked-songs',
     name: 'Liked Songs',
     songs: likedSongs,
-    coverArt: likedSongs.length > 0 ? getSongCoverArt(likedSongs[0]) : null,
+    coverArt: likedSongs.length > 0 ? getSongCoverArt(likedSongs[0], artists) : null,
     createdAt: new Date().toISOString(),
     isLikedSongs: true
   };
@@ -229,9 +229,9 @@ const Playlists = ({ playSong, initialPlaylistId, onClearInitialPlaylist }) => {
     >
       <View style={styles.playlistCover}>
         {item.isPickedForYou ? (
-          <CollageArtwork songs={item.songs} size={60} />
+          <CollageArtwork songs={item.songs} size={60} artists={artists} />
         ) : item.coverArt ? (
-          <Image source={{ uri: item.coverArt }} style={styles.coverImage} />
+          <CachedImage source={{ uri: item.coverArt }} style={styles.coverImage} />
         ) : (
           <View style={[
             styles.defaultCover, 
@@ -293,8 +293,8 @@ const Playlists = ({ playSong, initialPlaylistId, onClearInitialPlaylist }) => {
           }
         }}
       >
-        <Image 
-          source={{ uri: getSongCoverArt(item) }} 
+        <CachedImage 
+          source={{ uri: getSongCoverArt(item, artists) }} 
           style={styles.songCover}
         />
         <View style={styles.songInfo}>
@@ -355,9 +355,9 @@ const Playlists = ({ playSong, initialPlaylistId, onClearInitialPlaylist }) => {
         <View style={styles.playlistDetail}>
           <View style={styles.detailCover}>
             {selectedPlaylist.isPickedForYou ? (
-              <CollageArtwork songs={selectedPlaylist.songs} size={150} />
+              <CollageArtwork songs={selectedPlaylist.songs} size={150} artists={artists} />
             ) : selectedPlaylist.coverArt ? (
-              <Image source={{ uri: selectedPlaylist.coverArt }} style={styles.detailCoverImage} />
+              <CachedImage source={{ uri: selectedPlaylist.coverArt }} style={styles.detailCoverImage} />
             ) : (
               <View style={styles.detailDefaultCover}>
                 <FontAwesome name="music" size={48} color={palette.quaternary} />
@@ -382,6 +382,7 @@ const Playlists = ({ playSong, initialPlaylistId, onClearInitialPlaylist }) => {
           keyExtractor={(item) => item.id.toString()}
           showsVerticalScrollIndicator={false}
           style={styles.songsList}
+          contentContainerStyle={styles.songsListContainer}
         />
       </View>
     );
@@ -581,6 +582,9 @@ const styles = StyleSheet.create({
   },
   songsList: {
     flex: 1,
+  },
+  songsListContainer: {
+    paddingBottom: 100,
   },
   songItem: {
     flexDirection: 'row',

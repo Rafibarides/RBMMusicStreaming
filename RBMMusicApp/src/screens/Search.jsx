@@ -16,18 +16,16 @@ import { Video } from 'expo-av';
 import { FontAwesome } from '@expo/vector-icons';
 import { palette } from '../utils/Colors';
 import { useMusicData } from '../contexts/MusicDataContext';
+import CachedImage from '../components/CachedImage';
 
 // Import JSON data
-import artistsData from '../json/artists.json';
-import songsData from '../json/songIndexFlat.json';
 import eventsData from '../json/eventIndexFlat.json';
-import videosData from '../json/videoIndexFlat.json';
 
 // Import pages
 import ArtistPage from '../pages/ArtistPage';
 import Genres from '../pages/Genres';
 
-const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSong, onStopAudio }) => {
+const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSong, onStopAudio, onRegisterVideoStopCallback, onUnregisterVideoStopCallback }) => {
   const {
     searchQuery,
     searchResults,
@@ -37,7 +35,7 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
     songListData
   } = searchState;
 
-  const { forYouPlaylist, forYouPlaylistLoading } = useMusicData();
+  const { forYouPlaylist, forYouPlaylistLoading, videoIndexFlat, videoIndexFlatLoading, artists, artistsLoading, songIndexFlat, songIndexFlatLoading } = useMusicData();
 
   // Helper function to get cover art for a song
   const getSongCoverArt = (song) => {
@@ -49,7 +47,7 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
     }
 
     // Find the artist
-    const artist = artistsData.find(a => a.id === song.artistId);
+    const artist = artists.find(a => a.id === song.artistId);
     if (!artist) {
       console.log(`Artist not found for song: ${song.title}, artistId: ${song.artistId}`);
       return null;
@@ -85,6 +83,50 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
     return null;
   };
 
+  // Helper function to format songs from songIndexFlat for playback
+  const formatSongForPlayback = (song) => {
+    if (!song) return null;
+    
+    // Find the artist
+    const artist = artists.find(a => a.id === song.artistId);
+    let coverArt = song.coverArt;
+    let albumName = song.album;
+    
+    if (artist) {
+      // For album tracks, get cover art from album
+      if (song.type === 'album' && song.albumId && artist.albums) {
+        const album = artist.albums.find(a => a.id === song.albumId);
+        if (album) {
+          coverArt = album.coverArt;
+          albumName = album.name;
+        }
+      }
+      
+      // For singles, get cover art from single
+      if (song.type === 'single' && artist.singles) {
+        const single = artist.singles.find(s => s.id === song.id);
+        if (single) {
+          coverArt = single.coverArt;
+        }
+      }
+    }
+    
+    return {
+      id: song.id,
+      title: song.title,
+      name: song.title,
+      artist: song.artist,
+      album: albumName,
+      coverArt: coverArt,
+      audio: song.audio,
+      lyrics: song.lyrics,
+      credits: song.credits,
+      type: song.type,
+      releaseDate: song.releaseDate,
+      genre: song.genre
+    };
+  };
+
   // Local state for events page
   const [eventsSearchQuery, setEventsSearchQuery] = useState('');
   const [filteredEvents, setFilteredEvents] = useState(eventsData);
@@ -93,9 +135,17 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
 
   // Local state for videos page
   const [videosSearchQuery, setVideosSearchQuery] = useState('');
-  const [filteredVideos, setFilteredVideos] = useState(videosData);
+  const [filteredVideos, setFilteredVideos] = useState([]);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [videoAspectRatio, setVideoAspectRatio] = useState(16/9);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+
+  // Initialize filteredVideos when videoIndexFlat loads
+  useEffect(() => {
+    if (!videoIndexFlatLoading && videoIndexFlat.length > 0) {
+      setFilteredVideos(videoIndexFlat);
+    }
+  }, [videoIndexFlat, videoIndexFlatLoading]);
 
   // Local state for new music (recently added) page
   const [showNewMusic, setShowNewMusic] = useState(false);
@@ -121,11 +171,16 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
       return;
     }
 
+    // Don't search if data is still loading
+    if (artistsLoading || songIndexFlatLoading || !artists || !songIndexFlat) {
+      return;
+    }
+
     const lowerQuery = query.toLowerCase();
     const results = [];
 
     // Search artists
-    artistsData.forEach(artist => {
+    artists.forEach(artist => {
       if (artist.name.toLowerCase().includes(lowerQuery)) {
         results.push({
           id: `artist_${artist.id}`,
@@ -137,21 +192,21 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
       }
     });
 
-    // Search songs
-    songsData.forEach(song => {
-      if (song.title.toLowerCase().includes(lowerQuery)) {
+    // Search songs - search in title, artist, and album
+    songIndexFlat.forEach(song => {
+      if (song.title.toLowerCase().includes(lowerQuery) || 
+          song.artist.toLowerCase().includes(lowerQuery) ||
+          (song.album && song.album.toLowerCase().includes(lowerQuery))) {
         results.push({
           id: `song_${song.id}`,
           type: 'song',
           name: song.title,
           artist: song.artist,
           image: getSongCoverArt(song),
-          data: song
+          data: formatSongForPlayback(song)
         });
       }
     });
-
-
 
     updateSearchState({
       searchResults: results,
@@ -183,7 +238,7 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
       const lowerQuery = query.toLowerCase();
       events = events.filter(event => {
         // Get artist name
-        const artist = artistsData.find(a => a.id === event.artistId);
+        const artist = artists.find(a => a.id === event.artistId);
         const artistName = artist ? artist.name.toLowerCase() : '';
         
         return (
@@ -207,7 +262,7 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
 
   // Search videos
   const searchVideos = (query) => {
-    let videos = [...videosData];
+    let videos = [...videoIndexFlat];
 
     // Filter by search query
     if (query.length > 0) {
@@ -226,7 +281,7 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
   // Handle video search changes
   useEffect(() => {
     searchVideos(videosSearchQuery);
-  }, [videosSearchQuery]);
+  }, [videosSearchQuery, videoIndexFlat]);
 
   // Handle navigation to artist page
   const navigateToArtist = (artist) => {
@@ -286,7 +341,11 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
 
   // Get recently added songs (top 10 by release date) - same as Dashboard
   const getRecentlyAddedSongs = () => {
-    return [...songsData]
+    if (songIndexFlatLoading || !songIndexFlat) {
+      return [];
+    }
+    
+    return [...songIndexFlat]
       .sort((a, b) => new Date(b.releaseDate) - new Date(a.releaseDate))
       .slice(0, 10);
   };
@@ -317,14 +376,41 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
   const handleVideoPlay = (video) => {
     // Stop any current audio first
     if (onStopAudio) {
+      console.log('🎥 Starting video - stopping any playing audio');
       onStopAudio();
     }
     // Navigate to video player page
     setSelectedVideo(video);
+    setIsVideoPlaying(true);
     updateSearchState({
       currentPage: 'videoPlayer'
     });
   };
+
+  // Function to stop currently playing video
+  const stopCurrentVideo = () => {
+    if (isVideoPlaying && selectedVideo) {
+      console.log('🛑 Stopping video due to music playback');
+      setIsVideoPlaying(false);
+      setSelectedVideo(null);
+      updateSearchState({
+        currentPage: 'videos'
+      });
+    }
+  };
+
+  // Register video stop callback when video is playing
+  useEffect(() => {
+    if (isVideoPlaying && onRegisterVideoStopCallback) {
+      onRegisterVideoStopCallback(stopCurrentVideo);
+    }
+    
+    return () => {
+      if (onUnregisterVideoStopCallback) {
+        onUnregisterVideoStopCallback();
+      }
+    };
+  }, [isVideoPlaying, onRegisterVideoStopCallback, onUnregisterVideoStopCallback]);
 
   // Handle video load to get aspect ratio
   const handleVideoLoad = (status) => {
@@ -337,6 +423,7 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
   // Close video player
   const closeVideoPlayer = () => {
     setSelectedVideo(null);
+    setIsVideoPlaying(false);
     updateSearchState({
       currentPage: 'videos'
     });
@@ -357,7 +444,7 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
         }
       }}
     >
-      <Image 
+      <CachedImage 
         source={{ uri: item.image }} 
         style={[
           styles.resultImage,
@@ -406,14 +493,14 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
 
   // Render event item
   const renderEventItem = ({ item }) => {
-    const artist = artistsData.find(a => a.id === item.artistId);
+    const artist = artists.find(a => a.id === item.artistId);
     
     return (
       <TouchableOpacity 
         style={styles.eventItem}
         onPress={() => setSelectedEvent(item)}
       >
-        <Image 
+        <CachedImage 
           source={{ uri: artist?.image }} 
           style={styles.eventArtistImage}
         />
@@ -436,7 +523,7 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
   const renderEventDetails = () => {
     if (!selectedEvent) return null;
     
-    const artist = artistsData.find(a => a.id === selectedEvent.artistId);
+    const artist = artists.find(a => a.id === selectedEvent.artistId);
     
     return (
       <View style={styles.eventDetailsContainer}>
@@ -452,7 +539,7 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
 
         <ScrollView style={styles.eventDetailsScroll} showsVerticalScrollIndicator={false}>
           <View style={styles.eventDetailsContent}>
-            <Image 
+            <CachedImage 
               source={{ uri: artist?.image }} 
               style={styles.eventDetailsArtistImage}
             />
@@ -499,13 +586,24 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
     );
   };
 
-  // Get recommended videos (exclude current video)
+  // Local state for recommended videos to prevent re-randomization
+  const [recommendedVideos, setRecommendedVideos] = useState([]);
+
+  // Get recommended videos (exclude current video) - memoized
   const getRecommendedVideos = (currentVideoId) => {
-    return videosData
+    return videoIndexFlat
       .filter(video => video.id !== currentVideoId)
       .sort(() => Math.random() - 0.5) // Randomize
       .slice(0, 6); // Show 6 recommendations
   };
+
+  // Update recommended videos when selectedVideo changes
+  useEffect(() => {
+    if (selectedVideo) {
+      const newRecommendedVideos = getRecommendedVideos(selectedVideo.id);
+      setRecommendedVideos(newRecommendedVideos);
+    }
+  }, [selectedVideo, videoIndexFlat]);
 
   // Handle recommended video click
   const handleRecommendedVideoClick = (video) => {
@@ -515,14 +613,14 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
 
   // Render recommended video item
   const renderRecommendedVideo = ({ item }) => {
-    const artist = artistsData.find(a => a.id === item.artistId);
+    const artist = artists.find(a => a.id === item.artistId);
     
     return (
       <TouchableOpacity 
         style={styles.recommendedVideoItem}
         onPress={() => handleRecommendedVideoClick(item)}
       >
-        <Image 
+        <CachedImage 
           source={{ uri: item.thumbnail }} 
           style={styles.recommendedVideoThumbnail}
         />
@@ -542,10 +640,9 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
   const renderVideoPlayer = () => {
     if (!selectedVideo) return null;
     
-    const artist = artistsData.find(a => a.id === selectedVideo.artistId);
+    const artist = artists.find(a => a.id === selectedVideo.artistId);
     const screenWidth = Dimensions.get('window').width;
     const videoHeight = screenWidth / videoAspectRatio;
-    const recommendedVideos = getRecommendedVideos(selectedVideo.id);
     
     return (
       <View style={styles.videoPlayerContainer}>
@@ -568,9 +665,19 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
               style={styles.videoPlayerVideo}
               useNativeControls
               resizeMode="contain"
-              shouldPlay={true}
+              shouldPlay={isVideoPlaying}
               isLooping={false}
               onLoad={handleVideoLoad}
+              onPlaybackStatusUpdate={(status) => {
+                if (status.isLoaded) {
+                  // Update video playing state based on actual playback
+                  if (status.isPlaying && !isVideoPlaying) {
+                    setIsVideoPlaying(true);
+                  } else if (!status.isPlaying && isVideoPlaying) {
+                    setIsVideoPlaying(false);
+                  }
+                }
+              }}
             />
           </View>
 
@@ -602,14 +709,14 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
 
   // Render video search result item
   const renderVideoSearchItem = ({ item }) => {
-    const artist = artistsData.find(a => a.id === item.artistId);
+    const artist = artists.find(a => a.id === item.artistId);
     
     return (
       <TouchableOpacity 
         style={styles.videoSearchItem}
         onPress={() => handleVideoPlay(item)}
       >
-        <Image 
+        <CachedImage 
           source={{ uri: item.thumbnail }} 
           style={styles.videoSearchThumbnail}
         />
@@ -627,14 +734,14 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
 
   // Render horizontal scrolling video thumbnail
   const renderVideoThumbnail = ({ item }) => {
-    const artist = artistsData.find(a => a.id === item.artistId);
+    const artist = artists.find(a => a.id === item.artistId);
     
     return (
       <TouchableOpacity 
         style={styles.videoThumbnailItem}
         onPress={() => handleVideoPlay(item)}
       >
-        <Image 
+        <CachedImage 
           source={{ uri: item.thumbnail }} 
           style={styles.videoThumbnailImage}
         />
@@ -647,7 +754,7 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
 
   // Get latest videos for scrolling section
   const getLatestVideos = () => {
-    return [...videosData].sort((a, b) => new Date(b.releaseDate) - new Date(a.releaseDate));
+    return [...videoIndexFlat].sort((a, b) => new Date(b.releaseDate) - new Date(a.releaseDate));
   };
 
   // Render videos page
@@ -663,17 +770,23 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
         <Text style={styles.videosTitle}>Music Videos</Text>
       </View>
 
-      {/* Horizontal scrolling videos section */}
-      <View style={styles.latestVideosSection}>
-        <FlatList
-          data={getLatestVideos()}
-          renderItem={renderVideoThumbnail}
-          keyExtractor={(item) => item.id.toString()}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.videosThumbnailList}
-        />
-      </View>
+      {videoIndexFlatLoading ? (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading videos...</Text>
+        </View>
+      ) : (
+        <>
+          {/* Horizontal scrolling videos section */}
+          <View style={styles.latestVideosSection}>
+            <FlatList
+              data={getLatestVideos()}
+              renderItem={renderVideoThumbnail}
+              keyExtractor={(item) => item.id.toString()}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.videosThumbnailList}
+            />
+          </View>
 
       {/* Search Bar */}
       <View style={styles.searchBarContainer}>
@@ -712,6 +825,8 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
           </View>
         )}
        />
+       </>
+     )}
      </View>
    );
 
@@ -739,14 +854,15 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
               style={styles.newMusicSongItem}
               onPress={() => {
                 if (playSong) {
-                  playSong(item, recentlyAddedSongs, index);
+                  const formattedSongs = recentlyAddedSongs.map(formatSongForPlayback);
+                  playSong(formatSongForPlayback(item), formattedSongs, index);
                 }
               }}
             >
               <View style={styles.rankContainer}>
                 <Text style={styles.rankNumber}>{index + 1}</Text>
               </View>
-              <Image 
+              <CachedImage 
                 source={{ uri: getSongCoverArt(item) }} 
                 style={styles.newMusicSongCover}
               />
@@ -940,7 +1056,7 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
                         }
                       }}
                     >
-                      <Image 
+                      <CachedImage 
                         source={{ uri: getSongCoverArt(item) }} 
                         style={styles.recommendedSongCover}
                       />
@@ -962,6 +1078,7 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
                   keyExtractor={(item) => item.id.toString()}
                   showsVerticalScrollIndicator={false}
                   scrollEnabled={false}
+                  contentContainerStyle={styles.recommendedListContent}
                 />
               )}
             </View>
@@ -981,6 +1098,8 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
         updateSearchState={updateSearchState}
         playSong={playSong}
         onStopAudio={onStopAudio}
+        onRegisterVideoStopCallback={onRegisterVideoStopCallback}
+        onUnregisterVideoStopCallback={onUnregisterVideoStopCallback}
       />
     );
   }
@@ -1661,6 +1780,9 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: palette.secondary,
     marginLeft: 75,
+  },
+  recommendedListContent: {
+    paddingBottom: 100,
   },
   loadingContainer: {
     paddingVertical: 20,

@@ -13,10 +13,10 @@ import {
 import { FontAwesome } from '@expo/vector-icons';
 import { palette } from '../utils/Colors';
 import { useMusicData } from '../contexts/MusicDataContext';
-import artistsData from '../json/artists.json';
+import CachedImage from '../components/CachedImage';
 
 // Helper function to get cover art for a song
-const getSongCoverArt = (song) => {
+const getSongCoverArt = (song, artists) => {
   if (!song) return null;
   
   // If song already has coverArt (for backward compatibility), use it
@@ -25,7 +25,7 @@ const getSongCoverArt = (song) => {
   }
 
   // Find the artist
-  const artist = artistsData.find(a => a.id === song.artistId);
+  const artist = artists.find(a => a.id === song.artistId);
   if (!artist) {
     console.log(`Artist not found for song: ${song.title}, artistId: ${song.artistId}`);
     return null;
@@ -64,7 +64,7 @@ const getSongCoverArt = (song) => {
 const { width: screenWidth } = Dimensions.get('window');
 
 const Popular = ({ onBack, playSong }) => {
-  const { forYouPlaylist, forYouPlaylistLoading } = useMusicData();
+  const { forYouPlaylist, forYouPlaylistLoading, artists } = useMusicData();
   
   // Animation values
   const chartAnimation = useRef(new Animated.Value(0)).current;
@@ -208,7 +208,7 @@ const Popular = ({ onBack, playSong }) => {
       <View style={styles.rankContainer}>
         <Text style={styles.rankNumber}>{index + 1}</Text>
       </View>
-      <Image source={{ uri: getSongCoverArt(item) }} style={styles.songCover} />
+      <CachedImage source={{ uri: getSongCoverArt(item, artists) }} style={styles.songCover} />
       <View style={styles.songInfo}>
         <Text style={styles.songTitle} numberOfLines={1}>
           {item.title}
@@ -242,24 +242,24 @@ const Popular = ({ onBack, playSong }) => {
       <View style={[styles.collageContainer, { width: 60, height: 60 }]}>
         {/* Top row */}
         <View style={styles.collageRow}>
-          <Image 
-            source={{ uri: getSongCoverArt(forYouPlaylist[0]) }} 
+          <CachedImage 
+            source={{ uri: getSongCoverArt(forYouPlaylist[0], artists) }} 
             style={[styles.collageImage, { width: imageSize, height: imageSize }]}
           />
-          <Image 
-            source={{ uri: getSongCoverArt(forYouPlaylist[1]) }} 
+          <CachedImage 
+            source={{ uri: getSongCoverArt(forYouPlaylist[1], artists) }} 
             style={[styles.collageImage, { width: imageSize, height: imageSize }]}
           />
         </View>
         
         {/* Bottom row */}
         <View style={styles.collageRow}>
-          <Image 
-            source={{ uri: getSongCoverArt(forYouPlaylist[2]) }} 
+          <CachedImage 
+            source={{ uri: getSongCoverArt(forYouPlaylist[2], artists) }} 
             style={[styles.collageImage, { width: imageSize, height: imageSize }]}
           />
-          <Image 
-            source={{ uri: getSongCoverArt(forYouPlaylist[3]) }} 
+          <CachedImage 
+            source={{ uri: getSongCoverArt(forYouPlaylist[3], artists) }} 
             style={[styles.collageImage, { width: imageSize, height: imageSize }]}
           />
         </View>

@@ -12,16 +12,17 @@ import {
 } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { palette } from '../utils/Colors';
-import songIndexFlat from '../json/songIndexFlat.json';
-import artistsData from '../json/artists.json';
+import { useMusicData } from '../contexts/MusicDataContext';
+import CachedImage from '../components/CachedImage';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 const Genres = ({ onBack, playSong }) => {
+  const { songIndexFlat, songIndexFlatLoading, artists, artistsLoading } = useMusicData();
   const [selectedGenre, setSelectedGenre] = useState(null);
 
   // Helper function to get cover art for a song
-  const getSongCoverArt = (song) => {
+  const getSongCoverArt = (song, artists) => {
     if (!song) return null;
     
     // If song already has coverArt (for backward compatibility), use it
@@ -30,7 +31,7 @@ const Genres = ({ onBack, playSong }) => {
     }
 
     // Find the artist
-    const artist = artistsData.find(a => a.id === song.artistId);
+    const artist = artists.find(a => a.id === song.artistId);
     if (!artist) {
       console.log(`Artist not found for song: ${song.title}, artistId: ${song.artistId}`);
       return null;
@@ -76,6 +77,10 @@ const Genres = ({ onBack, playSong }) => {
 
   // Dynamically extract unique genres and organize data
   const genreData = useMemo(() => {
+    if (songIndexFlatLoading || !songIndexFlat || artistsLoading || !artists) {
+      return [];
+    }
+    
     const genreMap = {};
     
     songIndexFlat.forEach(song => {
@@ -92,11 +97,11 @@ const Genres = ({ onBack, playSong }) => {
       name: genre,
       songs: genreMap[genre],
       songCount: genreMap[genre].length,
-      coverImage: getSongCoverArt(genreMap[genre][0]), // Use first song's cover as genre image
+      coverImage: getSongCoverArt(genreMap[genre][0], artists), // Use first song's cover as genre image
       buttonImage: buttonImages[index % buttonImages.length], // Cycle through button images
       id: `genre_${index}`
     }));
-  }, []);
+  }, [songIndexFlat, artists, songIndexFlatLoading, artistsLoading]);
 
   // Handle genre selection
   const handleGenrePress = (genre) => {
@@ -159,7 +164,7 @@ const Genres = ({ onBack, playSong }) => {
         }
       }}
     >
-      <Image source={{ uri: getSongCoverArt(item) }} style={styles.songCover} />
+      <CachedImage source={{ uri: getSongCoverArt(item, artists) }} style={styles.songCover} />
       <View style={styles.songInfo}>
         <Text style={styles.songTitle} numberOfLines={1}>
           {item.title}
