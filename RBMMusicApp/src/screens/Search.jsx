@@ -284,19 +284,41 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
   }, [videosSearchQuery, videoIndexFlat]);
 
   // Handle navigation to artist page
-  const navigateToArtist = (artist) => {
+  const navigateToArtist = (artist, previousPage = null) => {
     updateSearchState({
       selectedArtist: artist,
-      currentPage: 'artist'
+      currentPage: 'artist',
+      previousPage: previousPage || searchState.currentPage
     });
   };
 
   // Handle back navigation
   const navigateBack = () => {
+    const targetPage = searchState.previousPage || 'search';
+    console.log('🔙 Navigating back from artist page to:', targetPage);
+    
+    // Safety check: if trying to navigate back to videoPlayer but no video is selected, go to videos page instead
+    if (targetPage === 'videoPlayer' && !selectedVideo) {
+      console.warn('⚠️ Attempted to navigate back to videoPlayer but no video selected, redirecting to videos page');
+      updateSearchState({
+        currentPage: 'videos',
+        selectedArtist: null,
+        songListData: null,
+        previousPage: null
+      });
+      return;
+    }
+    
+    // Log video state when navigating back to video player
+    if (targetPage === 'videoPlayer') {
+      console.log('🎥 Navigating back to video player, selectedVideo:', selectedVideo?.title, 'isVideoPlaying:', isVideoPlaying);
+    }
+    
     updateSearchState({
-      currentPage: 'search',
+      currentPage: targetPage,
       selectedArtist: null,
-      songListData: null
+      songListData: null,
+      previousPage: null
     });
   };
 
@@ -638,7 +660,31 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
 
   // Render video player page
   const renderVideoPlayer = () => {
-    if (!selectedVideo) return null;
+    if (!selectedVideo) {
+      console.warn('renderVideoPlayer called but no selectedVideo');
+      return null;
+    }
+    
+    // Additional safety checks
+    if (!selectedVideo.url || !selectedVideo.title) {
+      console.error('Invalid video data:', selectedVideo);
+      return (
+        <View style={styles.container}>
+          <View style={styles.videoPlayerHeader}>
+            <TouchableOpacity 
+              style={styles.videoPlayerBackButton}
+              onPress={() => updateSearchState({ currentPage: 'videos' })}
+            >
+              <FontAwesome name="chevron-left" size={24} color={palette.text} />
+            </TouchableOpacity>
+            <Text style={styles.videoPlayerHeaderTitle}>Video Error</Text>
+          </View>
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Video data unavailable</Text>
+          </View>
+        </View>
+      );
+    }
     
     const artist = artists.find(a => a.id === selectedVideo.artistId);
     const screenWidth = Dimensions.get('window').width;
@@ -686,9 +732,18 @@ const Search = ({ searchState, updateSearchState, resetSearchNavigation, playSon
             <Text style={styles.videoPlayerTitle}>
               {selectedVideo.title}
             </Text>
-            <Text style={styles.videoPlayerArtist}>
-              {artist?.name}
-            </Text>
+            <TouchableOpacity 
+              onPress={() => {
+                if (artist) {
+                  navigateToArtist(artist, 'videoPlayer');
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.videoPlayerArtist}>
+                {artist?.name}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Recommended Videos */}

@@ -78,6 +78,15 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
   // Gesture handling for swipe back
   const translateX = useSharedValue(0);
 
+  // Safe wrapper for back navigation that includes error handling
+  const safeHandleBackNavigation = () => {
+    try {
+      handleBackNavigation();
+    } catch (error) {
+      console.error('Error in gesture back navigation:', error);
+    }
+  };
+
   const gestureHandler = useAnimatedGestureHandler({
     onStart: () => {
       translateX.value = 0;
@@ -89,7 +98,7 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
     },
     onEnd: (event) => {
       if (event.translationX > 100 && event.velocityX > 0) {
-        runOnJS(handleBackNavigation)();
+        runOnJS(safeHandleBackNavigation)();
       } else {
         translateX.value = withSpring(0);
       }
@@ -399,10 +408,25 @@ const ArtistPage = ({ artist, onBack, searchState, updateSearchState, playSong, 
 
   // Handle back navigation - stop any playing video first
   const handleBackNavigation = () => {
-    if (playingVideoId) {
-      setPlayingVideoId(null);
+    try {
+      if (playingVideoId) {
+        setPlayingVideoId(null);
+      }
+      if (onBack && typeof onBack === 'function') {
+        onBack();
+      }
+    } catch (error) {
+      console.error('Error in handleBackNavigation:', error);
+      // Fallback navigation if there's an error
+      if (updateSearchState) {
+        updateSearchState({
+          currentPage: 'search',
+          selectedArtist: null,
+          songListData: null,
+          previousPage: null
+        });
+      }
     }
-    onBack();
   };
 
   // Render single video item

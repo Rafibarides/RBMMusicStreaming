@@ -77,6 +77,17 @@ const AudioPlayerPage = ({
   const panRef = useRef(null);
   const scrollRef = useRef(null);
 
+  // Safe wrapper for back navigation
+  const safeOnBack = () => {
+    try {
+      if (onBack && typeof onBack === 'function') {
+        onBack();
+      }
+    } catch (error) {
+      console.error('Error in audio player back navigation:', error);
+    }
+  };
+
   const gestureHandler = useAnimatedGestureHandler({
     onStart: (event) => {
       translateY.value = 0;
@@ -89,7 +100,7 @@ const AudioPlayerPage = ({
     onEnd: (event) => {
       if (event.translationY > 30 || event.velocityY > 50) {
         translateY.value = withTiming(1000, { duration: 250 }, () => {
-          runOnJS(onBack)();
+          runOnJS(safeOnBack)();
         });
       } else {
         translateY.value = withTiming(0, { duration: 200 });

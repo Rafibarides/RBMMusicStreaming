@@ -46,7 +46,8 @@ const AppContent = () => {
     showResults: false,
     currentPage: 'search',
     selectedArtist: null,
-    songListData: null
+    songListData: null,
+    previousPage: null
   });
 
   // Audio player state
@@ -119,7 +120,8 @@ const AppContent = () => {
       ...prevState,
       currentPage: 'search',
       selectedArtist: null,
-      songListData: null
+      songListData: null,
+      previousPage: null
     }));
   }, []);
 

@@ -69,10 +69,10 @@ const Genres = ({ onBack, playSong }) => {
 
   // Button images mapping
   const buttonImages = [
-    require('../../assets/Buttons/button1.jpg'),
-    require('../../assets/Buttons/button2.jpg'),
-    require('../../assets/Buttons/button3.jpg'),
-    require('../../assets/Buttons/button4.jpg'),
+    require('../../assets/Buttons/button1.avif'),
+    require('../../assets/Buttons/button2.avif'),
+    require('../../assets/Buttons/button3.avif'),
+    require('../../assets/Buttons/button4.avif'),
   ];
 
   // Dynamically extract unique genres and organize data

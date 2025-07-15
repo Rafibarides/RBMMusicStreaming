@@ -17,6 +17,17 @@ const SongListPage = ({ songs, title, subtitle, onBack, playSong }) => {
   // Gesture handling for swipe back
   const translateX = useSharedValue(0);
 
+  // Safe wrapper for back navigation
+  const safeOnBack = () => {
+    try {
+      if (onBack && typeof onBack === 'function') {
+        onBack();
+      }
+    } catch (error) {
+      console.error('Error in song list back navigation:', error);
+    }
+  };
+
   const gestureHandler = useAnimatedGestureHandler({
     onStart: () => {
       translateX.value = 0;
@@ -28,7 +39,7 @@ const SongListPage = ({ songs, title, subtitle, onBack, playSong }) => {
     },
     onEnd: (event) => {
       if (event.translationX > 100 && event.velocityX > 0) {
-        runOnJS(onBack)();
+        runOnJS(safeOnBack)();
       } else {
         translateX.value = withSpring(0);
       }
