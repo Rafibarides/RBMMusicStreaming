@@ -2,7 +2,7 @@
   "expo": {
     "name": "Arbiem",
     "slug": "arbiem",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -16,11 +16,11 @@
       "supportsTablet": true,
       "infoPlist": {
         "UIBackgroundModes": [
-          "audio",
           "audio"
         ]
       },
-      "bundleIdentifier": "com.rafi-barides.Arbiem"
+      "bundleIdentifier": "com.rafi-barides.Arbiem",
+      "buildNumber": "5"
     },
     "android": {
       "adaptiveIcon": {
@@ -48,6 +48,11 @@
           "audioBackgroundMode": true
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d0c66a61-0ed8-4812-99ec-5ee589e137b8"
+      }
+    }
   }
 }

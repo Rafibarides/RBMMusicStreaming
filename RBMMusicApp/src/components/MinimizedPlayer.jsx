@@ -10,6 +10,7 @@ const MinimizedPlayer = ({
   song, 
   isPlaying, 
   isNavigating = false,
+  isLoading = false,
   onTogglePlay, 
   onPress, 
   onNext,
@@ -141,31 +142,35 @@ const MinimizedPlayer = ({
             
             {/* Controls */}
             <TouchableOpacity 
-              style={[styles.playBtn, isNavigating && styles.disabledButton]}
+              style={[styles.playBtn, (isNavigating || isLoading) && styles.disabledButton]}
               onPress={() => handleControlPress(onTogglePlay)}
               pointerEvents="auto"
               activeOpacity={0.7}
-              disabled={isNavigating}
+              disabled={isNavigating || isLoading}
             >
               <FontAwesome 
-                name={isNavigating ? "spinner" : (isPlaying ? "pause" : "play")} 
+                name={
+                  isLoading ? "hourglass-half" : 
+                  isNavigating ? "spinner" : 
+                  (isPlaying ? "pause" : "play")
+                } 
                 size={16} 
-                color={isNavigating ? palette.quaternary : palette.text}
-                style={!isPlaying && !isNavigating ? { marginLeft: 1 } : null}
+                color={(isNavigating || isLoading) ? palette.quaternary : palette.text}
+                style={!isPlaying && !isNavigating && !isLoading ? { marginLeft: 1 } : null}
               />
             </TouchableOpacity>
             
             <TouchableOpacity 
-              style={[styles.nextBtn, isNavigating && styles.disabledButton]}
+              style={[styles.nextBtn, (isNavigating || isLoading) && styles.disabledButton]}
               onPress={() => handleControlPress(onNext)}
               pointerEvents="auto"
               activeOpacity={0.7}
-              disabled={isNavigating}
+              disabled={isNavigating || isLoading}
             >
               <FontAwesome 
                 name="step-forward" 
                 size={14} 
-                color={isNavigating ? palette.quaternary : palette.text} 
+                color={(isNavigating || isLoading) ? palette.quaternary : palette.text} 
               />
             </TouchableOpacity>
             

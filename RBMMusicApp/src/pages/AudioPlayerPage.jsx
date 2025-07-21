@@ -248,7 +248,9 @@ const AudioPlayerPage = ({
   const handleArtistPress = () => {
     const artist = contextArtists.find(a => a.name === song.artist);
     if (artist && onNavigateToArtist) {
+      // Navigate and close modal simultaneously to prevent flicker
       onNavigateToArtist(artist);
+      onBack();
     }
   };
 
